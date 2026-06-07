@@ -84,8 +84,30 @@ func TestBookBrainzFetchAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 2 || matches[0].Provider != bookBrainzID || matches[1].PublishYear != 2021 {
+	if len(matches) != 1 || matches[0].Provider != bookBrainzID || matches[0].ProviderID != bbValidID {
 		t.Fatalf("Search() = %#v", matches)
+	}
+}
+
+func TestBookBrainzFetchSkipsAudioFormats(t *testing.T) {
+	body := []byte(`{"bbid":"b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d","defaultAlias":{"name":"Project Hail Mary (Audio Edition)"}}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/edition/"+bbValidID {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Write(body)
+	}))
+	defer srv.Close()
+	client := NewBookBrainzClientAt(srv.URL, "test")
+	client.http.client = srv.Client()
+
+	match, err := client.Fetch(context.Background(), bbValidID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match != nil {
+		t.Fatalf("Fetch() = %#v, want nil for audio format", match)
 	}
 }
 

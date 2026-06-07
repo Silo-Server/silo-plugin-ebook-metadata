@@ -214,7 +214,7 @@ func (c *BookBrainzClient) Search(ctx context.Context, q metadata.SearchQuery) (
 	out := make([]metadata.Match, 0, len(resp.Results))
 	for _, entity := range resp.Results {
 		match := entity.toMatch()
-		if match.Title != "" && catalogUUIDRE.MatchString(match.ProviderID) {
+		if match.Title != "" && catalogUUIDRE.MatchString(match.ProviderID) && !catalogHasAudioFormatIndicator(match.Title) {
 			out = append(out, match)
 		}
 	}
@@ -238,10 +238,18 @@ func (c *BookBrainzClient) Fetch(ctx context.Context, id string) (*metadata.Matc
 		return nil, err
 	}
 	match := entity.toMatch()
-	if match.Title == "" {
+	if match.Title == "" || catalogHasAudioFormatIndicator(match.Title) {
 		return nil, nil
 	}
 	return &match, nil
+}
+
+func catalogHasAudioFormatIndicator(value string) bool {
+	text := strings.ToLower(htmlText(value))
+	return strings.Contains(text, "audio edition") ||
+		strings.Contains(text, "audio book") ||
+		strings.Contains(text, "audio"+"book") ||
+		strings.Contains(text, "spoken word")
 }
 
 type bbEntity struct {

@@ -70,7 +70,10 @@ func (c *OpenLibraryClient) Search(ctx context.Context, q metadata.SearchQuery) 
 	}
 	matches := make([]metadata.Match, 0, len(resp.Docs))
 	for _, doc := range resp.Docs {
-		matches = append(matches, doc.toMatch(c.coversBase))
+		match := doc.toMatch(c.coversBase)
+		if match.ProviderID != "" {
+			matches = append(matches, match)
+		}
 	}
 	return matches, nil
 }
@@ -193,14 +196,22 @@ func (d openLibrarySearchDoc) toMatch(coversBase string) metadata.Match {
 	if d.CoverID > 0 && coversBase != "" {
 		coverURL = fmt.Sprintf("%s/b/id/%d-L.jpg", coversBase, d.CoverID)
 	}
+	isbn := metadata.NormalizeISBN(firstNonEmpty(d.ISBN...))
+	providerID := isbn
+	if providerID == "" {
+		key := strings.TrimPrefix(d.Key, "/books/")
+		if openLibraryEditionIDRE.MatchString(key) {
+			providerID = key
+		}
+	}
 	return metadata.Match{
 		Provider:    "openlibrary",
-		ProviderID:  strings.TrimPrefix(strings.TrimPrefix(d.Key, "/works/"), "/books/"),
+		ProviderID:  providerID,
 		Title:       d.Title,
 		Authors:     d.AuthorName,
 		Publisher:   firstNonEmpty(d.Publisher...),
 		PublishYear: d.FirstPublish,
-		ISBN:        firstNonEmpty(d.ISBN...),
+		ISBN:        isbn,
 		Genres:      d.Subject,
 		CoverURL:    coverURL,
 		Language:    firstNonEmpty(d.Language...),

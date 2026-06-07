@@ -36,3 +36,23 @@ jobs:
         env:
           GOWORK: off
         run: go test ./...
+
+      - name: Run race tests
+        env:
+          GOWORK: off
+        run: go test -race ./...
+
+      - name: Run vet
+        env:
+          GOWORK: off
+        run: go vet ./...
+
+      - name: Check module tidiness
+        env:
+          GOWORK: off
+        run: go mod tidy -diff
+
+      - name: Run build
+        env:
+          GOWORK: off
+        run: go build ./...

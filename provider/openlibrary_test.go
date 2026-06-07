@@ -131,11 +131,18 @@ func TestOpenLibrarySearchByText(t *testing.T) {
 		t.Fatalf("Search() returned %d matches, want 1", len(matches))
 	}
 	match := matches[0]
-	if match.ProviderID != "OL21048001W" {
-		t.Fatalf("ProviderID = %q, want OL21048001W", match.ProviderID)
+	if match.ProviderID != "9780593135204" {
+		t.Fatalf("ProviderID = %q, want 9780593135204", match.ProviderID)
 	}
 	if match.Title != "Project Hail Mary" || match.ISBN != "9780593135204" || match.PublishYear != 2021 {
 		t.Fatalf("Search()[0] = %#v", match)
+	}
+	selected, err := client.Fetch(context.Background(), match.ProviderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected == nil || selected.Title != "Project Hail Mary" || selected.ProviderID != "OL27924614M" {
+		t.Fatalf("Fetch(selected ProviderID) = %#v", selected)
 	}
 }
 
