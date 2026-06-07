@@ -335,7 +335,7 @@ func (c *FantasticFictionClient) ID() string { return fantasticFictionID }
 func (c *FantasticFictionClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
 	id = strings.TrimSpace(id)
 	path, ok := strings.CutPrefix(id, "path:")
-	if !ok || !strings.HasPrefix(path, "/") {
+	if !ok || !fetchableRelativePath(path) {
 		return nil, nil
 	}
 	body, status, err := c.http.get(ctx, c.http.baseURL+path)
@@ -865,7 +865,7 @@ func (c *WorldCatClient) Search(ctx context.Context, q metadata.SearchQuery) ([]
 func (c *WorldCatClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
 	id = strings.TrimSpace(id)
 	endpoint := ""
-	if path, ok := strings.CutPrefix(id, "path:"); ok && strings.HasPrefix(path, "/") {
+	if path, ok := strings.CutPrefix(id, "path:"); ok && fetchableRelativePath(path) {
 		endpoint = c.http.baseURL + path
 	} else {
 		id = compactISBN(id)

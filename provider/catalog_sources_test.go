@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -91,23 +90,24 @@ func TestBookBrainzFetchAndSearch(t *testing.T) {
 }
 
 func TestBookBrainzSearchSkipsRowsWithoutFetchableID(t *testing.T) {
-	html := []byte(`{"results":[{"bbid":"","defaultAlias":{"name":"No ID"}},{"bbid":"b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d","defaultAlias":{"name":"Good ID"}}]}`)
+	body := []byte(`{"results":[{"bbid":"","defaultAlias":{"name":"No ID"}},{"bbid":"b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d","defaultAlias":{"name":"Good ID"}}]}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/search" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Write(body)
+	}))
+	defer srv.Close()
+	client := NewBookBrainzClientAt(srv.URL, "test")
+	client.http.client = srv.Client()
 
-	var resp struct {
-		Results []bbEntity `json:"results"`
-	}
-	if err := json.Unmarshal(html, &resp); err != nil {
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "book"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	var matches []metadata.Match
-	for _, entity := range resp.Results {
-		match := entity.toMatch()
-		if match.Title != "" && catalogUUIDRE.MatchString(match.ProviderID) {
-			matches = append(matches, match)
-		}
-	}
 	if len(matches) != 1 || matches[0].ProviderID != bbValidID {
-		t.Fatalf("filtered matches = %#v", matches)
+		t.Fatalf("Search() = %#v", matches)
 	}
 }
 
@@ -162,6 +162,25 @@ func TestFantasticFictionSearchSkipsProtocolRelativeLinks(t *testing.T) {
 	html := []byte(`<div class="book"><a href="//example.com/book.htm">External</a> by <a>Someone</a> (2020)</div>`)
 	if matches := parseFantasticFictionSearchPage(html); len(matches) != 0 {
 		t.Fatalf("parseFantasticFictionSearchPage() = %#v, want no unfetchable rows", matches)
+	}
+}
+
+func TestFantasticFictionFetchRejectsProtocolRelativePathID(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	client := NewFantasticFictionClientAt(srv.URL, "test")
+	client.http.client = srv.Client()
+
+	match, err := client.Fetch(context.Background(), "path://example.com/book.htm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match != nil || requests != 0 {
+		t.Fatalf("Fetch() = %#v with %d requests, want nil and no network", match, requests)
 	}
 }
 
@@ -289,24 +308,23 @@ func TestInternetArchiveFetchAndSearch(t *testing.T) {
 
 func TestInternetArchiveSearchSkipsRowsWithoutFetchableID(t *testing.T) {
 	body := []byte(`{"response":{"docs":[{"title":"No ID"},{"identifier":"goodid","title":"Good ID"}]}}`)
-	var resp struct {
-		Response struct {
-			Docs []iaItem `json:"docs"`
-		} `json:"response"`
-	}
-	if err := json.Unmarshal(body, &resp); err != nil {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/advancedsearch.php" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Write(body)
+	}))
+	defer srv.Close()
+	client := NewInternetArchiveClientAt(srv.URL, "test")
+	client.http.client = srv.Client()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "book"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	var matches []metadata.Match
-	for _, item := range resp.Response.Docs {
-		match := item.toMatch("https://example.test")
-		if strings.TrimSpace(match.ProviderID) == "" {
-			continue
-		}
-		matches = append(matches, match)
-	}
 	if len(matches) != 1 || matches[0].ProviderID != "goodid" {
-		t.Fatalf("filtered matches = %#v", matches)
+		t.Fatalf("Search() = %#v", matches)
 	}
 }
 
@@ -360,6 +378,25 @@ func TestWorldCatSearchSkipsProtocolRelativeLinks(t *testing.T) {
 	html := []byte(`<div class="result"><div class="result-inner"><a class="title" href="//example.com/record">External</a> by <a>Someone</a> (2020)</div></div>`)
 	if matches := parseWorldCatSearchPage(html); len(matches) != 0 {
 		t.Fatalf("parseWorldCatSearchPage() = %#v, want no unfetchable rows", matches)
+	}
+}
+
+func TestWorldCatFetchRejectsProtocolRelativePathID(t *testing.T) {
+	requests := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	client := NewWorldCatClientAt(srv.URL, "test")
+	client.http.client = srv.Client()
+
+	match, err := client.Fetch(context.Background(), "path://example.com/record")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match != nil || requests != 0 {
+		t.Fatalf("Fetch() = %#v with %d requests, want nil and no network", match, requests)
 	}
 }
 
