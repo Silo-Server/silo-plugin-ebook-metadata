@@ -21,3 +21,15 @@ func TestNormalizeISBNRejectsShortValues(t *testing.T) {
 		t.Fatalf("NormalizeISBN short value = %q, want empty", got)
 	}
 }
+
+func TestNormalizeISBNRejectsInvalidChecksums(t *testing.T) {
+	cases := []string{
+		"978-0-593-13520-5",
+		"0-306-40615-3",
+	}
+	for _, input := range cases {
+		if got := NormalizeISBN(input); got != "" {
+			t.Fatalf("NormalizeISBN(%q) = %q, want empty", input, got)
+		}
+	}
+}
