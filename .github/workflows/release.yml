@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+
+      - name: Configure module resolution
+        run: |
+          go env -w GOPROXY=direct
+          go env -w GOPRIVATE=github.com/Silo-Server/*
+          go env -w GONOSUMDB=github.com/Silo-Server/*
+
+      - name: Reject committed local SDK replaces
+        run: |
+          if grep -Eq '^replace github.com/Silo-Server/silo-plugin-sdk => /' go.mod; then
+            echo "go.mod contains a machine-local silo-plugin-sdk replace."
+            exit 1
+          fi
+
+      - name: Build plugin binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          GOWORK: off
+        run: |
+          mkdir -p dist
+          binary="plugin-${GOOS}-${GOARCH}"
+          version="${GITHUB_REF_NAME#v}"
+          go build -trimpath -ldflags="-s -w -X main.version=${version}" -o "dist/${binary}" .
+          checksum=$(shasum -a 256 "dist/${binary}" | awk '{print $1}')
+          printf '%s  %s\n' "$checksum" "$binary" > dist/checksums.txt
+          sed "s/__CHECKSUM__/${checksum}/" manifest.json > "dist/manifest-${GOOS}-${GOARCH}.json"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/plugin-${{ matrix.goos }}-${{ matrix.goarch }}
+            dist/checksums.txt
+            dist/manifest-${{ matrix.goos }}-${{ matrix.goarch }}.json
