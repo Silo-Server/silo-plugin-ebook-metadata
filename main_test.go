@@ -6,15 +6,36 @@ import (
 	"testing"
 
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
+	"github.com/Silo-Server/silo-plugin-ebook-metadata/provider"
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
 )
 
 func TestRuntimeServerConfigureNoOp(t *testing.T) {
-	server := &runtimeServer{}
+	server := &runtimeServer{provider: provider.NewProvider()}
 
 	_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{})
 	if err != nil {
 		t.Fatalf("Configure() error = %v", err)
+	}
+}
+
+func TestMetadataServerGetMetadataReturnsNilForUnknown(t *testing.T) {
+	server := &metadataServer{
+		runtime: &runtimeServer{provider: provider.NewProvider()},
+	}
+
+	resp, err := server.GetMetadata(context.Background(), &pluginv1.GetMetadataRequest{
+		ProviderId: "unknown:ID1",
+		ItemType:   "ebook",
+	})
+	if err != nil {
+		t.Fatalf("GetMetadata() error = %v", err)
+	}
+	if resp == nil {
+		t.Fatal("GetMetadata() response is nil, want response with nil item")
+	}
+	if resp.GetItem() != nil {
+		t.Fatalf("GetMetadata().Item = %#v, want nil", resp.GetItem())
 	}
 }
 
