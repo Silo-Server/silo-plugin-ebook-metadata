@@ -16,7 +16,7 @@ clean:
 	rm -rf dist
 
 build-all:
-	@for platform in $(PLATFORMS); do \
+	@set -e; for platform in $(PLATFORMS); do \
 		GOOS=$${platform%%/*} GOARCH=$${platform##*/} CGO_ENABLED=0 \
 		go build -trimpath -ldflags="$(LDFLAGS)" -o dist/$(BINARY)-$${platform%%/*}-$${platform##*/} .; \
 	done
