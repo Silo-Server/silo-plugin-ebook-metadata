@@ -152,5 +152,8 @@ func defaultSources() []Source {
 		NewGoogleBooksClient("", userAgent),
 		NewISBNdbClient("", userAgent),
 		NewHardcoverClient("", userAgent),
+		NewGoodreadsClient(userAgent),
+		NewAmazonClient(userAgent),
+		NewAnnasArchiveClient(userAgent),
 	}
 }
