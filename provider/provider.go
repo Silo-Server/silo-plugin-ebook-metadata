@@ -146,5 +146,11 @@ func (p *Provider) Fetch(ctx context.Context, q metadata.SearchQuery) (*metadata
 }
 
 func defaultSources() []Source {
-	return nil
+	userAgent := "silo-plugin-ebook-metadata/0.1"
+	return []Source{
+		NewOpenLibraryClient(userAgent),
+		NewGoogleBooksClient("", userAgent),
+		NewISBNdbClient("", userAgent),
+		NewHardcoverClient("", userAgent),
+	}
 }

@@ -1,0 +1,17 @@
+{
+  "book": {
+    "title": "The Pragmatic Programmer",
+    "title_long": "The Pragmatic Programmer: Your Journey to Mastery, 20th Anniversary Edition",
+    "isbn": "020161622X",
+    "isbn13": "9780201616224",
+    "publisher": "Addison-Wesley Professional",
+    "language": "en",
+    "date_published": "2019-09-23",
+    "synopsis": "One of the most influential books in software development, now fully updated for modern software development.",
+    "overview": "Dave Thomas and Andy Hunt wrote the first edition of this influential book in 1999.",
+    "image": "https://images.isbndb.com/covers/62/24/9780201616224.jpg",
+    "authors": ["David Thomas", "Andrew Hunt"],
+    "subjects": ["Computer programming", "Software engineering"],
+    "pages": 352
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "docs": [
+    {
+      "key": "/works/OL21048001W",
+      "title": "Project Hail Mary",
+      "author_name": ["Andy Weir"],
+      "first_publish_year": 2021,
+      "isbn": ["9780593135204"],
+      "language": ["eng"],
+      "subject": ["Science Fiction"],
+      "cover_i": 10473226,
+      "number_of_pages_median": 476,
+      "publisher": ["Ballantine Books"]
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+package provider
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
+)
+
+func newHardcoverFake(t *testing.T, apiKey string) (*httptest.Server, *HardcoverClient, *int) {
+	t.Helper()
+	book := loadProviderFixture(t, "hardcover_book.json")
+	search := loadProviderFixture(t, "hardcover_search.json")
+	missing := []byte(`{"data":{"books_by_pk":null}}`)
+	requests := 0
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if r.Header.Get("Authorization") != "Bearer "+apiKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(string(body), "books_by_pk") && strings.Contains(string(body), `"id":97844`):
+			w.Write(book)
+		case strings.Contains(string(body), "books_by_pk"):
+			w.Write(missing)
+		default:
+			w.Write(search)
+		}
+	}))
+	client := NewHardcoverClientAt(srv.URL, apiKey, "test-agent")
+	client.client = srv.Client()
+	return srv, client, &requests
+}
+
+func TestHardcoverNoKeySearchFetchReturnNil(t *testing.T) {
+	srv, client, requests := newHardcoverFake(t, "")
+	defer srv.Close()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "Project Hail Mary"})
+	if err != nil || matches != nil {
+		t.Fatalf("Search() = %#v, %v; want nil, nil", matches, err)
+	}
+	match, err := client.Fetch(context.Background(), "97844")
+	if err != nil || match != nil {
+		t.Fatalf("Fetch() = %#v, %v; want nil, nil", match, err)
+	}
+	if *requests != 0 {
+		t.Fatalf("made %d requests without key, want 0", *requests)
+	}
+}
+
+func TestHardcoverFetchByID(t *testing.T) {
+	srv, client, _ := newHardcoverFake(t, "test-key")
+	defer srv.Close()
+
+	match, err := client.Fetch(context.Background(), "97844")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match == nil {
+		t.Fatal("Fetch() returned nil")
+	}
+	if match.Provider != "hardcover" || match.ProviderID != "97844" {
+		t.Fatalf("provider fields = %#v", match)
+	}
+	if match.Title != "Project Hail Mary" || match.ISBN != "9780593135204" || match.PublishYear != 2021 {
+		t.Fatalf("mapped fields = %#v", match)
+	}
+	if len(match.Authors) != 1 || match.Authors[0] != "Andy Weir" {
+		t.Fatalf("Authors = %#v", match.Authors)
+	}
+	if match.CoverURL != "https://example/cover.jpg" || match.PageCount != 476 {
+		t.Fatalf("mapped fields = %#v", match)
+	}
+}
+
+func TestHardcoverFetchMissing(t *testing.T) {
+	srv, client, _ := newHardcoverFake(t, "test-key")
+	defer srv.Close()
+
+	match, err := client.Fetch(context.Background(), "99999")
+	if err != nil {
+		t.Fatalf("Fetch() error = %v, want nil", err)
+	}
+	if match != nil {
+		t.Fatalf("Fetch() = %#v, want nil", match)
+	}
+}
+
+func TestHardcoverSearchByText(t *testing.T) {
+	srv, client, _ := newHardcoverFake(t, "test-key")
+	defer srv.Close()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "Project Hail Mary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("Search() returned %d matches, want 1", len(matches))
+	}
+	if matches[0].Provider != "hardcover" || matches[0].ProviderID != "97844" {
+		t.Fatalf("Search()[0] = %#v", matches[0])
+	}
+}
+
+func TestHardcoverFetchNonnumericReturnsNil(t *testing.T) {
+	srv, client, requests := newHardcoverFake(t, "test-key")
+	defer srv.Close()
+
+	match, err := client.Fetch(context.Background(), "not-a-number")
+	if err != nil {
+		t.Fatalf("Fetch() error = %v, want nil", err)
+	}
+	if match != nil {
+		t.Fatalf("Fetch() = %#v, want nil", match)
+	}
+	if *requests != 0 {
+		t.Fatalf("made %d requests for nonnumeric ID, want 0", *requests)
+	}
+}

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "books_by_pk": {
+      "id": 97844,
+      "title": "Project Hail Mary",
+      "description": "A lone astronaut.",
+      "release_date": "2021-05-04",
+      "pages": 476,
+      "contributions": [{"author": {"name": "Andy Weir"}}],
+      "editions": [{"isbn_13": "9780593135204", "isbn_10": "0593135202"}],
+      "image": {"url": "https://example/cover.jpg"},
+      "slug": "project-hail-mary"
+    }
+  }
+}

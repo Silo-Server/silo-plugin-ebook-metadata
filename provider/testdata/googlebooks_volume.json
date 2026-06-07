@@ -1,0 +1,21 @@
+{
+  "id": "zyTCAlFPjgYC",
+  "volumeInfo": {
+    "title": "Project Hail Mary",
+    "authors": ["Andy Weir"],
+    "publisher": "Ballantine Books",
+    "publishedDate": "2021-05-04",
+    "description": "A lone astronaut must save the earth from disaster in this incredible new science-based thriller from the #1 New York Times bestselling author of The Martian.",
+    "industryIdentifiers": [
+      {"type": "ISBN_13", "identifier": "9780593135204"},
+      {"type": "ISBN_10", "identifier": "0593135202"}
+    ],
+    "pageCount": 476,
+    "categories": ["Science Fiction"],
+    "imageLinks": {
+      "thumbnail": "http://books.google.com/books/content?id=zyTCAlFPjgYC&printsec=frontcover&img=1&zoom=1",
+      "large": "http://books.google.com/books/content?id=zyTCAlFPjgYC&printsec=frontcover&img=1&zoom=4"
+    },
+    "language": "en"
+  }
+}

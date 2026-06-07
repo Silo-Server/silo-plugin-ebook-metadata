@@ -1,0 +1,15 @@
+{
+  "key": "/books/OL27924614M",
+  "title": "Project Hail Mary",
+  "subtitle": "",
+  "author_name": ["Andy Weir"],
+  "description": "A lone astronaut.",
+  "publishers": ["Ballantine Books"],
+  "publish_date": "2021-05-04",
+  "languages": [{"key": "/languages/eng"}],
+  "subjects": ["Science Fiction"],
+  "isbn_13": ["9780593135204"],
+  "isbn_10": ["0593135202"],
+  "number_of_pages": 476,
+  "covers": [10473226]
+}
