@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/provider"
@@ -26,6 +27,11 @@ type runtimeServer struct {
 	pluginv1.UnimplementedRuntimeServer
 
 	manifest *pluginv1.PluginManifest
+	mu       sync.RWMutex
+	state    runtimeState
+}
+
+type runtimeState struct {
 	provider *provider.Provider
 	options  provider.Options
 }
@@ -44,27 +50,34 @@ func (s *runtimeServer) GetManifest(context.Context, *pluginv1.GetManifestReques
 
 func (s *runtimeServer) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*pluginv1.ConfigureResponse, error) {
 	options := providerOptionsFromConfig(req.GetConfig())
-	s.options = options
-	s.provider = provider.NewProviderWithOptions(options)
+	s.mu.Lock()
+	s.state = runtimeState{
+		provider: provider.NewProviderWithOptions(options),
+		options:  options,
+	}
+	s.mu.Unlock()
 	return &pluginv1.ConfigureResponse{}, nil
 }
 
-func (s *runtimeServer) providerForRequest() (*provider.Provider, error) {
-	return s.provider, nil
+func (s *runtimeServer) stateForRequest() runtimeState {
+	s.mu.RLock()
+	state := s.state
+	s.mu.RUnlock()
+	if state.provider == nil {
+		state.provider = provider.NewProvider()
+	}
+	return state
 }
 
 func (s *metadataServer) Search(ctx context.Context, req *pluginv1.SearchMetadataRequest) (*pluginv1.SearchMetadataResponse, error) {
-	p, err := s.runtime.providerForRequest()
-	if err != nil {
-		return nil, err
-	}
+	state := s.runtime.stateForRequest()
 
-	matches, err := p.Search(ctx, metadata.SearchQuery{
+	matches, err := state.provider.Search(ctx, metadata.SearchQuery{
 		Title:       req.GetQuery(),
 		Year:        int(req.GetYear()),
 		ContentType: req.GetItemType(),
 		ProviderIDs: stringMapFromStruct(req.GetProviderIds()),
-		Language:    firstText(req.GetLanguage(), s.runtime.options.DefaultRegion),
+		Language:    firstText(req.GetLanguage(), state.options.DefaultRegion),
 	})
 	if err != nil {
 		return nil, err
@@ -86,15 +99,12 @@ func (s *metadataServer) Search(ctx context.Context, req *pluginv1.SearchMetadat
 }
 
 func (s *metadataServer) GetMetadata(ctx context.Context, req *pluginv1.GetMetadataRequest) (*pluginv1.GetMetadataResponse, error) {
-	p, err := s.runtime.providerForRequest()
-	if err != nil {
-		return nil, err
-	}
+	state := s.runtime.stateForRequest()
 
-	match, err := p.Fetch(ctx, metadata.SearchQuery{
+	match, err := state.provider.Fetch(ctx, metadata.SearchQuery{
 		ProviderIDs: providerIDsFromProto(req.GetProviderIds(), capabilityID, req.GetProviderId()),
 		ContentType: req.GetItemType(),
-		Language:    firstText(req.GetLanguage(), s.runtime.options.DefaultRegion),
+		Language:    firstText(req.GetLanguage(), state.options.DefaultRegion),
 	})
 	if err != nil {
 		return nil, err
@@ -312,7 +322,7 @@ func main() {
 
 	rs := &runtimeServer{
 		manifest: manifest,
-		provider: provider.NewProvider(),
+		state:    runtimeState{provider: provider.NewProvider()},
 	}
 
 	runtime.Serve(runtime.ServeConfig{

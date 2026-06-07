@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"sync"
 	"testing"
 
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestRuntimeServerConfigureNoOp(t *testing.T) {
-	server := &runtimeServer{provider: provider.NewProvider()}
+	server := &runtimeServer{state: runtimeState{provider: provider.NewProvider()}}
 
 	_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{})
 	if err != nil {
@@ -21,7 +22,7 @@ func TestRuntimeServerConfigureNoOp(t *testing.T) {
 }
 
 func TestConfigureUpdatesProviderOptions(t *testing.T) {
-	server := &runtimeServer{provider: provider.NewProviderWithSources(nil)}
+	server := &runtimeServer{state: runtimeState{provider: provider.NewProviderWithSources(nil)}}
 
 	_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{
 		Config: []*pluginv1.ConfigEntry{
@@ -35,17 +36,18 @@ func TestConfigureUpdatesProviderOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Configure() error = %v", err)
 	}
-	if server.provider == nil {
+	state := server.stateForRequest()
+	if state.provider == nil {
 		t.Fatal("provider is nil after Configure")
 	}
-	if len(server.options.EnabledSources) != 1 || server.options.EnabledSources[0] != "openlibrary, googlebooks" {
+	if len(state.options.EnabledSources) != 1 || state.options.EnabledSources[0] != "openlibrary, googlebooks" {
 		t.Fatalf("EnabledSources not parsed")
 	}
-	if server.options.GoogleBooksAPIKey == "" || server.options.ISBNdbAPIKey == "" || server.options.HardcoverAPIKey == "" {
+	if state.options.GoogleBooksAPIKey == "" || state.options.ISBNdbAPIKey == "" || state.options.HardcoverAPIKey == "" {
 		t.Fatalf("API key options not parsed")
 	}
-	if server.options.DefaultRegion != "us" {
-		t.Fatalf("DefaultRegion = %q, want us", server.options.DefaultRegion)
+	if state.options.DefaultRegion != "us" {
+		t.Fatalf("DefaultRegion = %q, want us", state.options.DefaultRegion)
 	}
 }
 
@@ -60,7 +62,7 @@ func configEntry(t *testing.T, key string, value string) *pluginv1.ConfigEntry {
 
 func TestMetadataServerGetMetadataReturnsNilForUnknown(t *testing.T) {
 	server := &metadataServer{
-		runtime: &runtimeServer{provider: provider.NewProvider()},
+		runtime: &runtimeServer{state: runtimeState{provider: provider.NewProvider()}},
 	}
 
 	resp, err := server.GetMetadata(context.Background(), &pluginv1.GetMetadataRequest{
@@ -76,6 +78,32 @@ func TestMetadataServerGetMetadataReturnsNilForUnknown(t *testing.T) {
 	if resp.GetItem() != nil {
 		t.Fatalf("GetMetadata().Item = %#v, want nil", resp.GetItem())
 	}
+}
+
+func TestRuntimeServerConcurrentConfigureAndStateReads(t *testing.T) {
+	server := &runtimeServer{state: runtimeState{provider: provider.NewProviderWithSources(nil)}}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{
+				Config: []*pluginv1.ConfigEntry{configEntry(t, "default_region", "us")},
+			})
+			if err != nil {
+				t.Errorf("Configure() error = %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			state := server.stateForRequest()
+			if state.provider == nil {
+				t.Error("provider is nil")
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func TestProviderSearchResultFromMatchMapsEbookIDs(t *testing.T) {
