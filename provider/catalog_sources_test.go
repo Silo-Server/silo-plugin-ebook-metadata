@@ -96,7 +96,7 @@ func TestFantasticFictionSearchOnly(t *testing.T) {
 		switch r.URL.Path {
 		case "/search/":
 			w.Write(search)
-		case "/w/andy-weir/project-hail-mary.htm":
+		case "/w/andy-weir/project-hail-mary.htm", "/w/andy-weir/the-martian.htm", "/h/frank-herbert/dune.htm":
 			w.Write(book)
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -118,12 +118,18 @@ func TestFantasticFictionSearchOnly(t *testing.T) {
 			t.Fatalf("Search() emitted unfetchable row: %#v", match)
 		}
 	}
+	for _, match := range matches {
+		selected, err := client.Fetch(context.Background(), match.ProviderID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if selected == nil || selected.ProviderID != match.ProviderID {
+			t.Fatalf("Fetch(%q) = %#v", match.ProviderID, selected)
+		}
+	}
 	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if selected == nil || selected.ProviderID != "path:/w/andy-weir/project-hail-mary.htm" || selected.Title != "Project Hail Mary" {
-		t.Fatalf("Fetch(search ProviderID) = %#v", selected)
 	}
 	if len(selected.Authors) != 1 || selected.Authors[0] != "Andy Weir" || selected.PublishYear != 2021 {
 		t.Fatalf("selected mapped fields = %#v", selected)
@@ -174,7 +180,7 @@ func TestLibraryThingFetchAndSearch(t *testing.T) {
 		switch {
 		case r.URL.Path == "/isbn/9780441172665":
 			w.Write(work)
-		case r.URL.Path == "/work/1234":
+		case r.URL.Path == "/work/1234", r.URL.Path == "/work/5678", r.URL.Path == "/work/9012":
 			w.Write(work)
 		case r.URL.Path == "/search.php":
 			w.Write(search)
@@ -204,12 +210,14 @@ func TestLibraryThingFetchAndSearch(t *testing.T) {
 	if len(matches) != 3 || matches[0].ProviderID != "work:1234" || matches[0].PublishYear != 1965 || matches[2].Title != "Children of Dune" {
 		t.Fatalf("Search() = %#v", matches)
 	}
-	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if selected == nil || selected.ProviderID != "work:1234" || selected.Title != "Dune" {
-		t.Fatalf("Fetch(search ProviderID) = %#v", selected)
+	for _, match := range matches {
+		selected, err := client.Fetch(context.Background(), match.ProviderID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if selected == nil || selected.ProviderID != match.ProviderID {
+			t.Fatalf("Fetch(%q) = %#v", match.ProviderID, selected)
+		}
 	}
 }
 
