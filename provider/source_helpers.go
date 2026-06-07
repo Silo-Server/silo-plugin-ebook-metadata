@@ -76,12 +76,28 @@ func redactURL(value *url.URL) string {
 		return ""
 	}
 	clone := *value
+	clone.Path = redactPathSegments(clone.EscapedPath())
 	query := clone.Query()
-	for _, key := range []string{"key", "api_key", "apikey", "token", "access_token"} {
-		if query.Has(key) {
-			query.Set(key, "<redacted>")
+	for key, values := range query {
+		for i := range values {
+			values[i] = "<redacted>"
 		}
+		query[key] = values
 	}
 	clone.RawQuery = query.Encode()
 	return clone.String()
+}
+
+func redactPathSegments(path string) string {
+	if path == "" {
+		return ""
+	}
+	segments := strings.Split(path, "/")
+	for i := 0; i+1 < len(segments); i++ {
+		switch strings.ToLower(segments[i]) {
+		case "dp", "md5":
+			segments[i+1] = "redacted"
+		}
+	}
+	return strings.Join(segments, "/")
 }

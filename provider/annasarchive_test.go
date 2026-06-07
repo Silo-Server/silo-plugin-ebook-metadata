@@ -171,3 +171,47 @@ func TestAnnasArchiveAudiobookDetailReturnsNil(t *testing.T) {
 		t.Fatalf("Fetch() = %#v, want nil for audio format", match)
 	}
 }
+
+func TestAnnasArchiveSearchFiltersAdditionalAudioFormats(t *testing.T) {
+	html := []byte(`
+		<table>
+		<tr>
+			<td><a href="/md5/e5f67890abcdef1234567890abcdef12"><span>Audio Format Result</span></a></td>
+			<td>2020 [en] .flac 400MB</td>
+		</tr>
+		<tr>
+			<td><a href="/md5/f67890abcdef1234567890abcdef1234"><span>Spoken Word Result</span></a></td>
+			<td>2020 [en] spoken word 400MB</td>
+		</tr>
+		<tr>
+			<td><a href="/md5/67890abcdef1234567890abcdef12345"><span>Paper Result</span></a></td>
+			<td>2020 [en] .epub 1MB</td>
+		</tr>
+		</table>
+	`)
+
+	matches := parseAnnasArchiveSearchPage(html, "https://example.test")
+	if len(matches) != 1 {
+		t.Fatalf("parseAnnasArchiveSearchPage() returned %d matches, want 1: %#v", len(matches), matches)
+	}
+	if matches[0].ProviderID != "67890abcdef1234567890abcdef12345" {
+		t.Fatalf("ProviderID = %q, want ebook row", matches[0].ProviderID)
+	}
+}
+
+func TestAnnasArchiveDetailFiltersAudioIndicatorWithoutExtension(t *testing.T) {
+	html := []byte(`
+		<html>
+		<head><title>Spoken Edition</title></head>
+		<body>
+			<h1>Spoken Edition</h1>
+			<p>Audio book</p>
+		</body>
+		</html>
+	`)
+
+	match, ext := parseAnnasArchiveDetailPage(html, "https://example.test")
+	if match != nil || ext != "" {
+		t.Fatalf("parseAnnasArchiveDetailPage() = %#v/%q, want nil/empty", match, ext)
+	}
+}

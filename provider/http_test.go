@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -98,6 +99,31 @@ func TestHTTPGetBytesWrapsBodyReadErrors(t *testing.T) {
 	_, err := httpGetBytes(context.Background(), client, "https://example.test/book", "")
 	if !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatalf("httpGetBytes() error = %v, want io.ErrUnexpectedEOF", err)
+	}
+}
+
+func TestRedactRawURLMasksQueryValuesAndSourceIDs(t *testing.T) {
+	got := redactRawURL("https://example.test/search?q=Project+Hail+Mary&key=secret")
+	for _, leaked := range []string{"Project", "Hail", "Mary", "secret"} {
+		if strings.Contains(got, leaked) {
+			t.Fatalf("redactRawURL() = %q, leaked %q", got, leaked)
+		}
+	}
+	if !strings.Contains(got, "q=%3Credacted%3E") || !strings.Contains(got, "key=%3Credacted%3E") {
+		t.Fatalf("redactRawURL() = %q, want redacted query values", got)
+	}
+
+	for _, raw := range []string{
+		"https://example.test/dp/B08G9PRS1K",
+		"https://example.test/md5/a1b2c3d4e5f67890abcdef1234567890",
+	} {
+		got = redactRawURL(raw)
+		if strings.Contains(got, "B08G9PRS1K") || strings.Contains(got, "a1b2c3d4e5f67890abcdef1234567890") {
+			t.Fatalf("redactRawURL(%q) = %q, leaked source ID", raw, got)
+		}
+		if !strings.Contains(got, "/redacted") {
+			t.Fatalf("redactRawURL(%q) = %q, want redacted path segment", raw, got)
+		}
 	}
 }
 

@@ -112,11 +112,26 @@ func TestAmazonTextSearchReturnsNilWithoutNetwork(t *testing.T) {
 	}
 }
 
-func TestAmazonSearchDelegatesForAmazonID(t *testing.T) {
+func TestAmazonSearchIgnoresSourceShapedTextWithoutProviderID(t *testing.T) {
 	srv, client, _ := newAmazonFake(t)
 	defer srv.Close()
 
 	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "B08G9PRS1K"})
+	if err != nil {
+		t.Fatalf("Search() error = %v, want nil", err)
+	}
+	if matches != nil {
+		t.Fatalf("Search() = %#v, want nil", matches)
+	}
+}
+
+func TestAmazonSearchDelegatesForExplicitAmazonID(t *testing.T) {
+	srv, client, _ := newAmazonFake(t)
+	defer srv.Close()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{
+		ProviderIDs: map[string]string{"amazon": "B08G9PRS1K"},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,5 +140,45 @@ func TestAmazonSearchDelegatesForAmazonID(t *testing.T) {
 	}
 	if matches[0].ProviderID != "B08G9PRS1K" {
 		t.Fatalf("ProviderID = %q, want B08G9PRS1K", matches[0].ProviderID)
+	}
+}
+
+func TestAmazonSearchDelegatesForCapabilityProviderID(t *testing.T) {
+	srv, client, _ := newAmazonFake(t)
+	defer srv.Close()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{
+		ProviderIDs: map[string]string{metadata.CapabilityID: "amazon:B08G9PRS1K"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("Search() returned %d matches, want 1", len(matches))
+	}
+	if matches[0].ProviderID != "B08G9PRS1K" {
+		t.Fatalf("ProviderID = %q, want B08G9PRS1K", matches[0].ProviderID)
+	}
+}
+
+func TestAmazonAuthorParsingRequiresAuthorRole(t *testing.T) {
+	html := []byte(`
+		<span id="productTitle">Role Test</span>
+		<span class="author notFaded">
+			<a class="a-link-normal" href="/writer">Writer One</a>
+			<span class="a-color-secondary">(Author)</span>
+		</span>
+		<span class="author notFaded">
+			<a class="a-link-normal" href="/speaker">Speaker One</a>
+			<span class="a-color-secondary">(Performer)</span>
+		</span>
+	`)
+
+	match := parseAmazonProductPage(html)
+	if match == nil {
+		t.Fatal("parseAmazonProductPage() returned nil")
+	}
+	if len(match.Authors) != 1 || match.Authors[0] != "Writer One" {
+		t.Fatalf("Authors = %#v, want only Writer One", match.Authors)
 	}
 }

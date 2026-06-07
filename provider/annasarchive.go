@@ -29,7 +29,7 @@ var (
 	aaYearRE            = regexp.MustCompile(`\b(19|20)\d{2}\b`)
 	aaISBN13RE          = regexp.MustCompile(`\b(97[89]\d{10})\b`)
 	aaISBN10RE          = regexp.MustCompile(`\b(\d{9}[\dXx])\b`)
-	aaFileFormatRE      = regexp.MustCompile(`(?i)\b(epub|pdf|mobi|azw3|cbr|cbz|fb2|djvu|txt|mp3|m4b)\b`)
+	aaFileFormatRE      = regexp.MustCompile(`(?i)\b(epub|pdf|mobi|azw3|cbr|cbz|fb2|djvu|txt|mp3|m4b|m4a|aac|flac|ogg|opus|wav|wma|aax)\b`)
 	aaLangCodeRE        = regexp.MustCompile(`(?i)\[([a-z]{2})\]`)
 	aaDetailH1RE        = regexp.MustCompile(`(?is)<h1[^>]*>([^<]+)</h1>`)
 	aaDetailTitleTagRE  = regexp.MustCompile(`(?is)<title>([^<]+)</title>`)
@@ -47,6 +47,7 @@ var (
 	aaWSRE              = regexp.MustCompile(`\s+`)
 	aaNumEntityRE       = regexp.MustCompile(`&#(\d+);`)
 	aaEbookExtensions   = map[string]bool{"epub": true, "pdf": true, "mobi": true, "azw3": true, "cbr": true, "cbz": true, "fb2": true, "djvu": true, "txt": true}
+	aaAudioExtensions   = map[string]bool{"mp3": true, "m4b": true, "m4a": true, "aac": true, "flac": true, "ogg": true, "opus": true, "wav": true, "wma": true, "aax": true}
 )
 
 type AnnasArchiveClient struct {
@@ -93,7 +94,7 @@ func (c *AnnasArchiveClient) Fetch(ctx context.Context, id string) (*metadata.Ma
 	}
 
 	match, ext := parseAnnasArchiveDetailPage(body, c.baseURL)
-	if match == nil || (ext != "" && !aaEbookExtensions[ext]) {
+	if match == nil || aaAudioExtensions[ext] || (ext != "" && !aaEbookExtensions[ext]) {
 		return nil, nil
 	}
 	match.Provider = annasArchiveID
@@ -141,8 +142,12 @@ func parseAnnasArchiveSearchPage(html []byte, base string) []metadata.Match {
 		if len(title) < 2 {
 			continue
 		}
+		if aaHasAudioIndicator(row) {
+			continue
+		}
 		if m := aaFileFormatRE.FindStringSubmatch(row); len(m) >= 2 {
-			if !aaEbookExtensions[strings.ToLower(m[1])] {
+			ext := strings.ToLower(m[1])
+			if aaAudioExtensions[ext] || !aaEbookExtensions[ext] {
 				continue
 			}
 		}
@@ -175,6 +180,9 @@ func parseAnnasArchiveSearchPage(html []byte, base string) []metadata.Match {
 
 func parseAnnasArchiveDetailPage(html []byte, base string) (*metadata.Match, string) {
 	s := string(html)
+	if aaHasAudioIndicator(s) {
+		return nil, ""
+	}
 	title := aaStripText(aaFirstSubmatch(aaDetailH1RE, s))
 	if title == "" {
 		raw := aaStripText(aaFirstSubmatch(aaDetailTitleTagRE, s))
@@ -230,6 +238,14 @@ func parseAnnasArchiveDetailPage(html []byte, base string) (*metadata.Match, str
 		ext = strings.ToLower(m[1])
 	}
 	return match, ext
+}
+
+func aaHasAudioIndicator(s string) bool {
+	text := strings.ToLower(aaStripText(s))
+	return strings.Contains(text, "audiobook") ||
+		strings.Contains(text, "audio book") ||
+		strings.Contains(text, "spoken word") ||
+		strings.Contains(text, "audible studios")
 }
 
 func aaFirstSubmatch(re *regexp.Regexp, s string) string {

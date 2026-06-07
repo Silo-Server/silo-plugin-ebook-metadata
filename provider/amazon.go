@@ -93,14 +93,17 @@ func (c *AmazonClient) Fetch(ctx context.Context, id string) (*metadata.Match, e
 }
 
 func (c *AmazonClient) Search(ctx context.Context, q metadata.SearchQuery) ([]metadata.Match, error) {
-	query := strings.TrimSpace(sourceQueryText(q))
-	if query == "" {
+	id := strings.TrimSpace(q.ProviderIDs[amazonID])
+	if id == "" {
+		sourceID, providerID := metadata.ParseCapabilityProviderID(q.ProviderIDs[metadata.CapabilityID])
+		if sourceID == amazonID {
+			id = providerID
+		}
+	}
+	if !amazonSourceIDRE.MatchString(id) {
 		return nil, nil
 	}
-	if !amazonSourceIDRE.MatchString(query) {
-		return nil, nil
-	}
-	match, err := c.Fetch(ctx, query)
+	match, err := c.Fetch(ctx, id)
 	if err != nil || match == nil {
 		return nil, err
 	}
@@ -117,6 +120,9 @@ func parseAmazonProductPage(html []byte) *metadata.Match {
 
 	for _, block := range amAuthorsBlockRE.FindAllStringSubmatch(s, -1) {
 		if len(block) < 2 {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(amStripText(block[1])), "(author)") {
 			continue
 		}
 		for _, m := range amAuthorLinkRE.FindAllStringSubmatch(block[1], -1) {
