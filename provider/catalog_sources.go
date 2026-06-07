@@ -91,6 +91,10 @@ func compactISBN(value string) string {
 	return strings.ReplaceAll(strings.TrimSpace(value), "-", "")
 }
 
+func fetchableRelativePath(path string) bool {
+	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
+}
+
 type GutenbergClient struct {
 	http catalogHTTPClient
 }
@@ -210,7 +214,7 @@ func (c *BookBrainzClient) Search(ctx context.Context, q metadata.SearchQuery) (
 	out := make([]metadata.Match, 0, len(resp.Results))
 	for _, entity := range resp.Results {
 		match := entity.toMatch()
-		if match.Title != "" {
+		if match.Title != "" && catalogUUIDRE.MatchString(match.ProviderID) {
 			out = append(out, match)
 		}
 	}
@@ -395,7 +399,7 @@ func parseFantasticFictionSearchPage(html []byte) []metadata.Match {
 		if title == "" {
 			continue
 		}
-		if !strings.HasPrefix(tm[1], "/") {
+		if !fetchableRelativePath(tm[1]) {
 			continue
 		}
 		match := metadata.Match{ProviderID: "path:" + tm[1], Title: title}
@@ -720,7 +724,11 @@ func (c *InternetArchiveClient) Search(ctx context.Context, q metadata.SearchQue
 	}
 	out := make([]metadata.Match, 0, len(resp.Response.Docs))
 	for _, item := range resp.Response.Docs {
-		out = append(out, item.toMatch(c.http.baseURL))
+		match := item.toMatch(c.http.baseURL)
+		if strings.TrimSpace(match.ProviderID) == "" {
+			continue
+		}
+		out = append(out, match)
 	}
 	return out, nil
 }
@@ -915,7 +923,7 @@ func parseWorldCatSearchPage(html []byte) []metadata.Match {
 		providerID := ""
 		if len(tm) >= 3 {
 			title = htmlText(tm[2])
-			if strings.HasPrefix(tm[1], "/") {
+			if fetchableRelativePath(tm[1]) {
 				providerID = "path:" + tm[1]
 			}
 		}
@@ -1075,6 +1083,9 @@ func parseDoubanSearchPage(html []byte) []metadata.Match {
 		match := metadata.Match{Title: title, CoverURL: item.CoverURL}
 		if sm := dbSubjectRE.FindStringSubmatch(item.URL); len(sm) >= 2 {
 			match.ProviderID = sm[1]
+		}
+		if match.ProviderID == "" {
+			continue
 		}
 		parts := strings.Split(item.Abstract, " / ")
 		cleaned := make([]string, 0, len(parts))

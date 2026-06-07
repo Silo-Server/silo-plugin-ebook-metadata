@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,6 +90,27 @@ func TestBookBrainzFetchAndSearch(t *testing.T) {
 	}
 }
 
+func TestBookBrainzSearchSkipsRowsWithoutFetchableID(t *testing.T) {
+	html := []byte(`{"results":[{"bbid":"","defaultAlias":{"name":"No ID"}},{"bbid":"b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d","defaultAlias":{"name":"Good ID"}}]}`)
+
+	var resp struct {
+		Results []bbEntity `json:"results"`
+	}
+	if err := json.Unmarshal(html, &resp); err != nil {
+		t.Fatal(err)
+	}
+	var matches []metadata.Match
+	for _, entity := range resp.Results {
+		match := entity.toMatch()
+		if match.Title != "" && catalogUUIDRE.MatchString(match.ProviderID) {
+			matches = append(matches, match)
+		}
+	}
+	if len(matches) != 1 || matches[0].ProviderID != bbValidID {
+		t.Fatalf("filtered matches = %#v", matches)
+	}
+}
+
 func TestFantasticFictionSearchOnly(t *testing.T) {
 	book := loadProviderFixture(t, "fantasticfiction_book.html")
 	search := loadProviderFixture(t, "fantasticfiction_search.html")
@@ -133,6 +155,13 @@ func TestFantasticFictionSearchOnly(t *testing.T) {
 	}
 	if len(selected.Authors) != 1 || selected.Authors[0] != "Andy Weir" || selected.PublishYear != 2021 {
 		t.Fatalf("selected mapped fields = %#v", selected)
+	}
+}
+
+func TestFantasticFictionSearchSkipsProtocolRelativeLinks(t *testing.T) {
+	html := []byte(`<div class="book"><a href="//example.com/book.htm">External</a> by <a>Someone</a> (2020)</div>`)
+	if matches := parseFantasticFictionSearchPage(html); len(matches) != 0 {
+		t.Fatalf("parseFantasticFictionSearchPage() = %#v, want no unfetchable rows", matches)
 	}
 }
 
@@ -258,6 +287,29 @@ func TestInternetArchiveFetchAndSearch(t *testing.T) {
 	}
 }
 
+func TestInternetArchiveSearchSkipsRowsWithoutFetchableID(t *testing.T) {
+	body := []byte(`{"response":{"docs":[{"title":"No ID"},{"identifier":"goodid","title":"Good ID"}]}}`)
+	var resp struct {
+		Response struct {
+			Docs []iaItem `json:"docs"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatal(err)
+	}
+	var matches []metadata.Match
+	for _, item := range resp.Response.Docs {
+		match := item.toMatch("https://example.test")
+		if strings.TrimSpace(match.ProviderID) == "" {
+			continue
+		}
+		matches = append(matches, match)
+	}
+	if len(matches) != 1 || matches[0].ProviderID != "goodid" {
+		t.Fatalf("filtered matches = %#v", matches)
+	}
+}
+
 func TestWorldCatFetchAndSearch(t *testing.T) {
 	record := loadProviderFixture(t, "worldcat_record.html")
 	search := loadProviderFixture(t, "worldcat_search.html")
@@ -304,6 +356,13 @@ func TestWorldCatFetchAndSearch(t *testing.T) {
 	}
 }
 
+func TestWorldCatSearchSkipsProtocolRelativeLinks(t *testing.T) {
+	html := []byte(`<div class="result"><div class="result-inner"><a class="title" href="//example.com/record">External</a> by <a>Someone</a> (2020)</div></div>`)
+	if matches := parseWorldCatSearchPage(html); len(matches) != 0 {
+		t.Fatalf("parseWorldCatSearchPage() = %#v, want no unfetchable rows", matches)
+	}
+}
+
 func TestDoubanFetchAndSearch(t *testing.T) {
 	subject := loadProviderFixture(t, "douban_subject.html")
 	search := loadProviderFixture(t, "douban_search.html")
@@ -338,5 +397,13 @@ func TestDoubanFetchAndSearch(t *testing.T) {
 	}
 	if len(matches) != 3 || matches[0].ProviderID != "2567698" || matches[1].Title != "三体II：黑暗森林" {
 		t.Fatalf("Search() = %#v", matches)
+	}
+}
+
+func TestDoubanSearchSkipsRowsWithoutFetchableID(t *testing.T) {
+	html := []byte(`<script>window.__DATA__ = {"items":[{"title":"No ID","url":"https://example.test/nope"},{"title":"Good ID","url":"https://book.douban.com/subject/12345/"}]};</script>`)
+	matches := parseDoubanSearchPage(html)
+	if len(matches) != 1 || matches[0].ProviderID != "12345" {
+		t.Fatalf("parseDoubanSearchPage() = %#v", matches)
 	}
 }
