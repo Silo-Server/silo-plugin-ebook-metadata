@@ -52,6 +52,9 @@ func NewProviderWithSources(sources []Source) *Provider {
 }
 
 func (p *Provider) Search(ctx context.Context, q metadata.SearchQuery) ([]metadata.Match, error) {
+	tctx, cancel := context.WithTimeout(ctx, providerTimeout)
+	defer cancel()
+
 	type result struct {
 		source  string
 		matches []metadata.Match
@@ -67,11 +70,13 @@ func (p *Provider) Search(ctx context.Context, q metadata.SearchQuery) ([]metada
 		go func(source Source) {
 			defer wg.Done()
 
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-tctx.Done():
+				results <- result{source: strings.TrimSpace(source.ID()), err: tctx.Err()}
+				return
+			}
 			defer func() { <-sem }()
-
-			tctx, cancel := context.WithTimeout(ctx, providerTimeout)
-			defer cancel()
 
 			matches, err := source.Search(tctx, q)
 			results <- result{
@@ -122,18 +127,22 @@ func (p *Provider) Fetch(ctx context.Context, q metadata.SearchQuery) (*metadata
 	if isbn == "" {
 		return nil, nil
 	}
+	var lastErr error
 	for _, sourceID := range []string{"openlibrary", "googlebooks", "isbndb"} {
 		source := p.byID[sourceID]
 		if source == nil {
 			continue
 		}
 		match, err := source.Fetch(tctx, isbn)
-		if match != nil || err != nil {
-			return match, err
+		if match != nil {
+			return match, nil
+		}
+		if err != nil {
+			lastErr = err
 		}
 	}
 
-	return nil, nil
+	return nil, lastErr
 }
 
 func defaultSources() []Source {
