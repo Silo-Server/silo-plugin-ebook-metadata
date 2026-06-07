@@ -535,10 +535,16 @@ func (c *LibraryThingClient) Search(ctx context.Context, q metadata.SearchQuery)
 
 func (c *LibraryThingClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
 	id = compactISBN(id)
-	if !catalogISBNRE.MatchString(id) {
+	endpoint := ""
+	if workID, ok := strings.CutPrefix(id, "work:"); ok && catalogNumericRE.MatchString(workID) {
+		endpoint = fmt.Sprintf("%s/work/%s", c.http.baseURL, url.PathEscape(workID))
+	} else if catalogISBNRE.MatchString(id) {
+		endpoint = fmt.Sprintf("%s/isbn/%s", c.http.baseURL, url.PathEscape(id))
+	}
+	if endpoint == "" {
 		return nil, nil
 	}
-	body, status, err := c.http.get(ctx, fmt.Sprintf("%s/isbn/%s", c.http.baseURL, url.PathEscape(id)))
+	body, status, err := c.http.get(ctx, endpoint)
 	if status == http.StatusNotFound {
 		return nil, nil
 	}
@@ -551,13 +557,15 @@ func (c *LibraryThingClient) Fetch(ctx context.Context, id string) (*metadata.Ma
 	}
 	match.Provider = libraryThingID
 	match.ProviderID = id
-	match.ISBN = metadata.NormalizeISBN(id)
+	if catalogISBNRE.MatchString(id) {
+		match.ISBN = metadata.NormalizeISBN(id)
+	}
 	return match, nil
 }
 
 var (
 	ltRowRE     = regexp.MustCompile(`(?is)<tr[^>]*class="[^"]*searchresult[^"]*"[^>]*>.*?</tr>`)
-	ltTitleRE   = regexp.MustCompile(`(?is)<a[^>]*href="/work/\d+[^"]*"[^>]*>([^<]+)</a>`)
+	ltTitleRE   = regexp.MustCompile(`(?is)<a[^>]*href="/work/(\d+)[^"]*"[^>]*>([^<]+)</a>`)
 	ltAuthorRE  = regexp.MustCompile(`(?is)<a[^>]*href="/author/[^"]*"[^>]*>([^<]+)</a>`)
 	ltYearRE    = regexp.MustCompile(`\((\d{4})\)`)
 	ltH1RE      = regexp.MustCompile(`(?is)<h1[^>]*>([^<]+)</h1>`)
@@ -574,11 +582,15 @@ func parseLibraryThingSearchPage(html []byte) []metadata.Match {
 	rows := ltRowRE.FindAllString(string(html), -1)
 	out := make([]metadata.Match, 0, len(rows))
 	for _, row := range rows {
-		title := htmlText(firstSubmatch(ltTitleRE, row))
+		tm := ltTitleRE.FindStringSubmatch(row)
+		if len(tm) < 3 {
+			continue
+		}
+		title := htmlText(tm[2])
 		if title == "" {
 			continue
 		}
-		match := metadata.Match{Title: title, PublishYear: firstYear(firstSubmatch(ltYearRE, row))}
+		match := metadata.Match{ProviderID: "work:" + tm[1], Title: title, PublishYear: firstYear(firstSubmatch(ltYearRE, row))}
 		if author := htmlText(firstSubmatch(ltAuthorRE, row)); author != "" {
 			match.Authors = []string{author}
 		}
@@ -793,11 +805,20 @@ func (c *WorldCatClient) Search(ctx context.Context, q metadata.SearchQuery) ([]
 }
 
 func (c *WorldCatClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
-	id = compactISBN(id)
-	if !catalogISBNRE.MatchString(id) {
+	id = strings.TrimSpace(id)
+	endpoint := ""
+	if path, ok := strings.CutPrefix(id, "path:"); ok && strings.HasPrefix(path, "/") {
+		endpoint = c.http.baseURL + path
+	} else {
+		id = compactISBN(id)
+		if catalogISBNRE.MatchString(id) {
+			endpoint = fmt.Sprintf("%s/isbn/%s", c.http.baseURL, url.PathEscape(id))
+		}
+	}
+	if endpoint == "" {
 		return nil, nil
 	}
-	body, status, err := c.http.get(ctx, fmt.Sprintf("%s/isbn/%s", c.http.baseURL, url.PathEscape(id)))
+	body, status, err := c.http.get(ctx, endpoint)
 	if status == http.StatusNotFound {
 		return nil, nil
 	}
@@ -810,13 +831,15 @@ func (c *WorldCatClient) Fetch(ctx context.Context, id string) (*metadata.Match,
 	}
 	match.Provider = worldCatID
 	match.ProviderID = id
-	match.ISBN = metadata.NormalizeISBN(id)
+	if catalogISBNRE.MatchString(id) {
+		match.ISBN = metadata.NormalizeISBN(id)
+	}
 	return match, nil
 }
 
 var (
 	wcBlockRE       = regexp.MustCompile(`(?is)<div[^>]*class="[^"]*(?:result|record)[^"]*"[^>]*>.*?</div>\s*</div>`)
-	wcTitleRE       = regexp.MustCompile(`(?is)<a[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</a>`)
+	wcTitleRE       = regexp.MustCompile(`(?is)<a[^>]*class="[^"]*title[^"]*"[^>]*href="([^"]+)"[^>]*>([^<]+)</a>`)
 	wcHeadingRE     = regexp.MustCompile(`(?is)<h[234][^>]*>([^<]+)</h[234]>`)
 	wcAuthorByRE    = regexp.MustCompile(`(?is)by\s+<[^>]*>([^<]+)</a>`)
 	wcAuthorSpanRE  = regexp.MustCompile(`(?is)<span[^>]*class="[^"]*author[^"]*"[^>]*>([^<]+)</span>`)
@@ -837,11 +860,22 @@ func parseWorldCatSearchPage(html []byte) []metadata.Match {
 	blocks := wcBlockRE.FindAllString(string(html), -1)
 	out := make([]metadata.Match, 0, len(blocks))
 	for _, block := range blocks {
-		title := htmlText(firstNonEmpty(firstSubmatch(wcTitleRE, block), firstSubmatch(wcHeadingRE, block)))
+		tm := wcTitleRE.FindStringSubmatch(block)
+		title := ""
+		providerID := ""
+		if len(tm) >= 3 {
+			title = htmlText(tm[2])
+			if strings.HasPrefix(tm[1], "/") {
+				providerID = "path:" + tm[1]
+			}
+		}
+		if title == "" {
+			title = htmlText(firstSubmatch(wcHeadingRE, block))
+		}
 		if title == "" {
 			continue
 		}
-		match := metadata.Match{Title: title, PublishYear: firstYear(wcYearRE.FindString(block))}
+		match := metadata.Match{ProviderID: providerID, Title: title, PublishYear: firstYear(wcYearRE.FindString(block))}
 		if author := htmlText(firstSubmatch(wcAuthorByRE, block)); author != "" {
 			match.Authors = []string{author}
 		} else if author := htmlText(firstSubmatch(wcAuthorSpanRE, block)); author != "" {

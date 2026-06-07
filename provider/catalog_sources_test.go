@@ -159,6 +159,8 @@ func TestLibraryThingFetchAndSearch(t *testing.T) {
 		switch {
 		case r.URL.Path == "/isbn/9780441172665":
 			w.Write(work)
+		case r.URL.Path == "/work/1234":
+			w.Write(work)
 		case r.URL.Path == "/search.php":
 			w.Write(search)
 		default:
@@ -184,8 +186,15 @@ func TestLibraryThingFetchAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 3 || matches[0].PublishYear != 1965 || matches[2].Title != "Children of Dune" {
+	if len(matches) != 3 || matches[0].ProviderID != "work:1234" || matches[0].PublishYear != 1965 || matches[2].Title != "Children of Dune" {
 		t.Fatalf("Search() = %#v", matches)
+	}
+	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected == nil || selected.ProviderID != "work:1234" || selected.Title != "Dune" {
+		t.Fatalf("Fetch(search ProviderID) = %#v", selected)
 	}
 }
 
@@ -233,6 +242,8 @@ func TestWorldCatFetchAndSearch(t *testing.T) {
 		switch {
 		case r.URL.Path == "/isbn/9780441172665":
 			w.Write(record)
+		case r.URL.Path == "/oclc/rec":
+			w.Write(record)
 		case r.URL.Path == "/search":
 			w.Write(search)
 		default:
@@ -258,8 +269,15 @@ func TestWorldCatFetchAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 2 || matches[1].Title != "Dune Messiah" || matches[1].PublishYear != 1969 {
+	if len(matches) != 2 || matches[0].ProviderID != "path:/oclc/rec" || matches[1].Title != "Dune Messiah" || matches[1].PublishYear != 1969 {
 		t.Fatalf("Search() = %#v", matches)
+	}
+	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected == nil || selected.ProviderID != "path:/oclc/rec" || selected.Title != "Dune" {
+		t.Fatalf("Fetch(search ProviderID) = %#v", selected)
 	}
 }
 
