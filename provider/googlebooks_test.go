@@ -142,7 +142,7 @@ func TestGoogleBooksErrorRedactsAPIKey(t *testing.T) {
 	}
 }
 
-func TestGoogleBooksUnauthenticatedAllowed(t *testing.T) {
+func TestGoogleBooksUnauthenticatedIsQuiet(t *testing.T) {
 	srv, client, requests := newGoogleBooksFake(t, "")
 	defer srv.Close()
 
@@ -150,11 +150,18 @@ func TestGoogleBooksUnauthenticatedAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 1 {
-		t.Fatalf("Search() returned %d matches, want 1", len(matches))
+	if matches != nil {
+		t.Fatalf("Search() = %#v, want nil without API key", matches)
 	}
-	if *requests == 0 {
-		t.Fatal("Search() made no request without API key")
+	match, err := client.Fetch(context.Background(), "zyTCAlFPjgYC")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match != nil {
+		t.Fatalf("Fetch() = %#v, want nil without API key", match)
+	}
+	if *requests != 0 {
+		t.Fatalf("client made %d requests without API key, want 0", *requests)
 	}
 }
 

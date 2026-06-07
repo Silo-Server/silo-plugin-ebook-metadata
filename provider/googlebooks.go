@@ -41,6 +41,9 @@ func (c *GoogleBooksClient) ID() string {
 }
 
 func (c *GoogleBooksClient) Search(ctx context.Context, q metadata.SearchQuery) ([]metadata.Match, error) {
+	if strings.TrimSpace(c.apiKey) == "" {
+		return nil, nil
+	}
 	query := strings.TrimSpace(sourceQueryText(q))
 	if query == "" {
 		query = strings.TrimSpace(q.ProviderIDs["isbn"])
@@ -73,6 +76,9 @@ func (c *GoogleBooksClient) Search(ctx context.Context, q metadata.SearchQuery) 
 }
 
 func (c *GoogleBooksClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
+	if strings.TrimSpace(c.apiKey) == "" {
+		return nil, nil
+	}
 	id = strings.TrimSpace(id)
 	if isbn := metadata.NormalizeISBN(id); isbn != "" {
 		matches, err := c.Search(ctx, metadata.SearchQuery{Title: isbn})
