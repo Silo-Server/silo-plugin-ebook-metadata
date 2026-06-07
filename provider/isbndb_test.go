@@ -108,6 +108,21 @@ func TestISBNdbSearchByText(t *testing.T) {
 	}
 }
 
+func TestISBNdbSearchUsesProviderISBN(t *testing.T) {
+	srv, client, _ := newISBNdbFake(t, "test-key")
+	defer srv.Close()
+
+	matches, err := client.Search(context.Background(), metadata.SearchQuery{
+		ProviderIDs: map[string]string{"isbn": "978-0-201-61622-4"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 2 {
+		t.Fatalf("Search() returned %d matches, want 2", len(matches))
+	}
+}
+
 func TestISBNdbFetchNonISBNReturnsNil(t *testing.T) {
 	srv, client, requests := newISBNdbFake(t, "test-key")
 	defer srv.Close()

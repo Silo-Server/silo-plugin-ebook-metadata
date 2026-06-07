@@ -80,6 +80,32 @@ func TestOpenLibraryFetchByISBN(t *testing.T) {
 	}
 }
 
+func TestOpenLibraryEditionAuthorRefsDoNotPretendNames(t *testing.T) {
+	body := []byte(`{
+		"key": "/books/OL1M",
+		"title": "Referenced Authors",
+		"authors": [{"key": "/authors/OL23919A"}],
+		"isbn_13": ["9780593135204"]
+	}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(body)
+	}))
+	defer srv.Close()
+
+	client := NewOpenLibraryClientAt(srv.URL, "https://covers.openlibrary.org", "test-agent")
+	client.client = srv.Client()
+	match, err := client.Fetch(context.Background(), "978-0-593-13520-4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match == nil {
+		t.Fatal("Fetch() returned nil")
+	}
+	if len(match.Authors) != 0 {
+		t.Fatalf("Authors = %#v, want empty until author refs are resolved", match.Authors)
+	}
+}
+
 func TestOpenLibraryFetchMissing(t *testing.T) {
 	srv, client := newOpenLibraryFake(t)
 	defer srv.Close()

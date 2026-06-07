@@ -43,7 +43,13 @@ func (c *ISBNdbClient) Search(ctx context.Context, q metadata.SearchQuery) ([]me
 	}
 	query := strings.TrimSpace(sourceQueryText(q))
 	if query == "" {
+		query = strings.TrimSpace(q.ProviderIDs["isbn"])
+	}
+	if query == "" {
 		return nil, nil
+	}
+	if isbn := metadata.NormalizeISBN(query); isbn != "" {
+		query = isbn
 	}
 	endpoint := fmt.Sprintf("%s/books/%s?pageSize=20", c.baseURL, url.PathEscape(query))
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)

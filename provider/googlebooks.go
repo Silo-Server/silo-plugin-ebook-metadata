@@ -74,6 +74,13 @@ func (c *GoogleBooksClient) Search(ctx context.Context, q metadata.SearchQuery) 
 
 func (c *GoogleBooksClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
 	id = strings.TrimSpace(id)
+	if isbn := metadata.NormalizeISBN(id); isbn != "" {
+		matches, err := c.Search(ctx, metadata.SearchQuery{Title: isbn})
+		if err != nil || len(matches) == 0 {
+			return nil, err
+		}
+		return &matches[0], nil
+	}
 	if !googleBooksVolumeIDRE.MatchString(id) {
 		return nil, nil
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 )
 
 const maxResponseBytes = 4 * 1024 * 1024
@@ -20,21 +21,29 @@ func httpGetBytes(ctx context.Context, client *http.Client, url string, userAgen
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("http get %s: request: %w", url, err)
+		return nil, fmt.Errorf("http get %s: request: %w", redactRawURL(url), err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return nil, fmt.Errorf("http get %s: status %d", url, resp.StatusCode)
+		return nil, fmt.Errorf("http get %s: status %d", redactRawURL(url), resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("http get %s: read body: %w", url, err)
+		return nil, fmt.Errorf("http get %s: read body: %w", redactRawURL(url), err)
 	}
 	if len(body) > maxResponseBytes {
-		return nil, fmt.Errorf("http get %s: response body exceeds %d bytes", url, maxResponseBytes)
+		return nil, fmt.Errorf("http get %s: response body exceeds %d bytes", redactRawURL(url), maxResponseBytes)
 	}
 
 	return body, nil
+}
+
+func redactRawURL(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	return redactURL(parsed)
 }

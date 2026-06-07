@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -53,19 +54,34 @@ func single(value string) []string {
 func httpDoBytes(ctx context.Context, client *http.Client, req *http.Request) ([]byte, int, error) {
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
-		return nil, 0, fmt.Errorf("%s %s: request: %w", req.Method, req.URL.String(), err)
+		return nil, 0, fmt.Errorf("%s %s: request: %w", req.Method, redactURL(req.URL), err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("%s %s: read body: %w", req.Method, req.URL.String(), err)
+		return nil, resp.StatusCode, fmt.Errorf("%s %s: read body: %w", req.Method, redactURL(req.URL), err)
 	}
 	if len(body) > maxResponseBytes {
-		return nil, resp.StatusCode, fmt.Errorf("%s %s: response body exceeds %d bytes", req.Method, req.URL.String(), maxResponseBytes)
+		return nil, resp.StatusCode, fmt.Errorf("%s %s: response body exceeds %d bytes", req.Method, redactURL(req.URL), maxResponseBytes)
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return body, resp.StatusCode, fmt.Errorf("%s %s: status %d", req.Method, req.URL.String(), resp.StatusCode)
+		return body, resp.StatusCode, fmt.Errorf("%s %s: status %d", req.Method, redactURL(req.URL), resp.StatusCode)
 	}
 	return body, resp.StatusCode, nil
+}
+
+func redactURL(value *url.URL) string {
+	if value == nil {
+		return ""
+	}
+	clone := *value
+	query := clone.Query()
+	for _, key := range []string{"key", "api_key", "apikey", "token", "access_token"} {
+		if query.Has(key) {
+			query.Set(key, "<redacted>")
+		}
+	}
+	clone.RawQuery = query.Encode()
+	return clone.String()
 }

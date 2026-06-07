@@ -108,6 +108,40 @@ func TestGoogleBooksSearchByISBN(t *testing.T) {
 	}
 }
 
+func TestGoogleBooksFetchByISBNUsesSearchFallback(t *testing.T) {
+	srv, client, _ := newGoogleBooksFake(t, "test-key")
+	defer srv.Close()
+
+	match, err := client.Fetch(context.Background(), "978-0-593-13520-4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if match == nil {
+		t.Fatal("Fetch() returned nil")
+	}
+	if match.ProviderID != "zyTCAlFPjgYC" {
+		t.Fatalf("ProviderID = %q, want zyTCAlFPjgYC", match.ProviderID)
+	}
+}
+
+func TestGoogleBooksErrorRedactsAPIKey(t *testing.T) {
+	secret := "secret-api-key"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream failed", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	client := NewGoogleBooksClientAt(srv.URL, secret, "test-agent")
+	client.client = srv.Client()
+	_, err := client.Search(context.Background(), metadata.SearchQuery{Title: "Project Hail Mary"})
+	if err == nil {
+		t.Fatal("Search() error = nil, want upstream error")
+	}
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("Search() error leaked API key: %v", err)
+	}
+}
+
 func TestGoogleBooksUnauthenticatedAllowed(t *testing.T) {
 	srv, client, requests := newGoogleBooksFake(t, "")
 	defer srv.Close()
