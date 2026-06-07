@@ -922,7 +922,7 @@ func parseWorldCatSearchPage(html []byte) []metadata.Match {
 		if title == "" {
 			title = htmlText(firstSubmatch(wcHeadingRE, block))
 		}
-		if title == "" {
+		if title == "" || providerID == "" {
 			continue
 		}
 		match := metadata.Match{ProviderID: providerID, Title: title, PublishYear: firstYear(wcYearRE.FindString(block))}

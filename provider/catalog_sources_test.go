@@ -279,7 +279,7 @@ func TestWorldCatFetchAndSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 2 || matches[0].ProviderID != "path:/oclc/rec" || matches[1].Title != "Dune Messiah" || matches[1].PublishYear != 1969 {
+	if len(matches) != 1 || matches[0].ProviderID != "path:/oclc/rec" || matches[0].Title != "Dune" {
 		t.Fatalf("Search() = %#v", matches)
 	}
 	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
