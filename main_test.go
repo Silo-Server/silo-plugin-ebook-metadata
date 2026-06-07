@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
 )
 
@@ -14,6 +15,105 @@ func TestRuntimeServerConfigureNoOp(t *testing.T) {
 	_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{})
 	if err != nil {
 		t.Fatalf("Configure() error = %v", err)
+	}
+}
+
+func TestProviderSearchResultFromMatchMapsEbookIDs(t *testing.T) {
+	match := metadata.Match{
+		Provider:    "openlibrary",
+		ProviderID:  "OL7353617M",
+		Title:       "The Name of the Wind",
+		Description: "A gifted young man grows into a legend.",
+		PublishYear: 2007,
+		ISBN:        "978-0-7564-0474-1",
+		CoverURL:    "https://covers.openlibrary.org/b/id/123-L.jpg",
+	}
+
+	result, err := providerSearchResultFromMatch(match, "ebook")
+	if err != nil {
+		t.Fatalf("providerSearchResultFromMatch() error = %v", err)
+	}
+
+	if result.GetProviderId() != "openlibrary:OL7353617M" {
+		t.Fatalf("ProviderId = %q, want openlibrary:OL7353617M", result.GetProviderId())
+	}
+	if result.GetTitle() != "The Name of the Wind" {
+		t.Fatalf("Title = %q, want The Name of the Wind", result.GetTitle())
+	}
+	if result.GetItemType() != "ebook" {
+		t.Fatalf("ItemType = %q, want ebook", result.GetItemType())
+	}
+
+	ids := result.GetProviderIds().GetFields()
+	if got := ids["openlibrary"].GetStringValue(); got != "OL7353617M" {
+		t.Fatalf("ProviderIds.openlibrary = %q, want OL7353617M", got)
+	}
+	if got := ids["ebook-metadata"].GetStringValue(); got != "openlibrary:OL7353617M" {
+		t.Fatalf("ProviderIds.ebook-metadata = %q, want openlibrary:OL7353617M", got)
+	}
+	if got := ids["isbn"].GetStringValue(); got != "9780756404741" {
+		t.Fatalf("ProviderIds.isbn = %q, want 9780756404741", got)
+	}
+}
+
+func TestMetadataItemFromMatchMapsAuthorsOnly(t *testing.T) {
+	match := metadata.Match{
+		Provider:       "openlibrary",
+		ProviderID:     "OL7353617M",
+		Title:          "The Name of the Wind",
+		Subtitle:       "The Kingkiller Chronicle: Day One",
+		Authors:        []string{"Patrick Rothfuss"},
+		Description:    "A gifted young man grows into a legend.",
+		Publisher:      "DAW",
+		PublishYear:    2007,
+		ISBN:           "978-0-7564-0474-1",
+		Genres:         []string{"Fantasy"},
+		CoverURL:       "https://covers.openlibrary.org/b/id/123-L.jpg",
+		Language:       "en",
+		PageCount:      662,
+		SeriesName:     "The Kingkiller Chronicle",
+		SeriesPosition: "1",
+	}
+
+	item, err := metadataItemFromMatch(match, "ebook")
+	if err != nil {
+		t.Fatalf("metadataItemFromMatch() error = %v", err)
+	}
+
+	if item.GetProviderId() != "openlibrary:OL7353617M" {
+		t.Fatalf("ProviderId = %q, want openlibrary:OL7353617M", item.GetProviderId())
+	}
+	if item.GetItemType() != "ebook" {
+		t.Fatalf("ItemType = %q, want ebook", item.GetItemType())
+	}
+	if len(item.GetPeople()) != 1 {
+		t.Fatalf("People length = %d, want 1", len(item.GetPeople()))
+	}
+	person := item.GetPeople()[0]
+	if person.GetName() != "Patrick Rothfuss" {
+		t.Fatalf("People[0].Name = %q, want Patrick Rothfuss", person.GetName())
+	}
+	if person.GetKind() != "author" {
+		t.Fatalf("People[0].Kind = %q, want author", person.GetKind())
+	}
+	if person.GetSortOrder() != 0 {
+		t.Fatalf("People[0].SortOrder = %d, want 0", person.GetSortOrder())
+	}
+	if got := item.GetMetadata().GetFields()["page_count"].GetNumberValue(); got != 662 {
+		t.Fatalf("Metadata.page_count = %v, want 662", got)
+	}
+	if item.GetPosterPath() != "https://covers.openlibrary.org/b/id/123-L.jpg" {
+		t.Fatalf("PosterPath = %q, want cover URL", item.GetPosterPath())
+	}
+	if len(item.GetStudios()) != 1 || item.GetStudios()[0] != "DAW" {
+		t.Fatalf("Studios = %v, want [DAW]", item.GetStudios())
+	}
+	metadataFields := item.GetMetadata().GetFields()
+	if got := metadataFields["series_name"].GetStringValue(); got != "The Kingkiller Chronicle" {
+		t.Fatalf("Metadata.series_name = %q, want The Kingkiller Chronicle", got)
+	}
+	if got := metadataFields["series_position"].GetStringValue(); got != "1" {
+		t.Fatalf("Metadata.series_position = %q, want 1", got)
 	}
 }
 
