@@ -328,8 +328,26 @@ func NewFantasticFictionClientAt(baseURL, userAgent string) *FantasticFictionCli
 
 func (c *FantasticFictionClient) ID() string { return fantasticFictionID }
 
-func (c *FantasticFictionClient) Fetch(context.Context, string) (*metadata.Match, error) {
-	return nil, nil
+func (c *FantasticFictionClient) Fetch(ctx context.Context, id string) (*metadata.Match, error) {
+	id = strings.TrimSpace(id)
+	path, ok := strings.CutPrefix(id, "path:")
+	if !ok || !strings.HasPrefix(path, "/") {
+		return nil, nil
+	}
+	body, status, err := c.http.get(ctx, c.http.baseURL+path)
+	if status == http.StatusNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	match := parseFantasticFictionBookPage(body)
+	if match == nil {
+		return nil, nil
+	}
+	match.Provider = fantasticFictionID
+	match.ProviderID = id
+	return match, nil
 }
 
 func (c *FantasticFictionClient) Search(ctx context.Context, q metadata.SearchQuery) ([]metadata.Match, error) {
@@ -353,10 +371,13 @@ func (c *FantasticFictionClient) Search(ctx context.Context, q metadata.SearchQu
 
 var (
 	ffBookBlockRE = regexp.MustCompile(`(?is)<div[^>]*class="[^"]*book[^"]*"[^>]*>.*?</div>`)
-	ffTitleRE     = regexp.MustCompile(`(?is)<a[^>]*href="[^"]*"[^>]*>([^<]+)</a>`)
+	ffTitleRE     = regexp.MustCompile(`(?is)<a[^>]*href="([^"]+)"[^>]*>([^<]+)</a>`)
 	ffAuthorRE    = regexp.MustCompile(`(?is)by\s+<a[^>]*>([^<]+)</a>`)
 	ffYearRE      = regexp.MustCompile(`\((\d{4})\)`)
 	ffSeriesRE    = regexp.MustCompile(`(?is)Series:\s*<a[^>]*>([^<]+)</a>`)
+	ffH1RE        = regexp.MustCompile(`(?is)<h1[^>]*>([^<]+)</h1>`)
+	ffTitleTagRE  = regexp.MustCompile(`(?is)<title>\s*([^<]+?)\s*</title>`)
+	ffDescRE      = regexp.MustCompile(`(?is)<div[^>]*class="[^"]*blurb[^"]*"[^>]*>(.*?)</div>`)
 )
 
 func parseFantasticFictionSearchPage(html []byte) []metadata.Match {
@@ -366,11 +387,18 @@ func parseFantasticFictionSearchPage(html []byte) []metadata.Match {
 	}
 	out := make([]metadata.Match, 0, len(blocks))
 	for _, block := range blocks {
-		title := htmlText(firstSubmatch(ffTitleRE, block))
+		tm := ffTitleRE.FindStringSubmatch(block)
+		if len(tm) < 3 {
+			continue
+		}
+		title := htmlText(tm[2])
 		if title == "" {
 			continue
 		}
 		match := metadata.Match{Title: title}
+		if strings.HasPrefix(tm[1], "/") {
+			match.ProviderID = "path:" + tm[1]
+		}
 		if author := htmlText(firstSubmatch(ffAuthorRE, block)); author != "" {
 			match.Authors = []string{author}
 		}
@@ -379,6 +407,28 @@ func parseFantasticFictionSearchPage(html []byte) []metadata.Match {
 		out = append(out, match)
 	}
 	return out
+}
+
+func parseFantasticFictionBookPage(html []byte) *metadata.Match {
+	s := string(html)
+	title := htmlText(firstSubmatch(ffH1RE, s))
+	if title == "" {
+		title = htmlText(firstSubmatch(ffTitleTagRE, s))
+		if idx := strings.Index(title, " - "); idx > 0 {
+			title = strings.TrimSpace(title[:idx])
+		}
+	}
+	if title == "" {
+		return nil
+	}
+	match := &metadata.Match{Title: title}
+	if author := htmlText(firstSubmatch(ffAuthorRE, s)); author != "" {
+		match.Authors = []string{author}
+	}
+	match.PublishYear = firstYear(firstSubmatch(ffYearRE, s))
+	match.SeriesName = htmlText(firstSubmatch(ffSeriesRE, s))
+	match.Description = htmlText(firstSubmatch(ffDescRE, s))
+	return match
 }
 
 type ISFDBClient struct {

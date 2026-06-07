@@ -90,28 +90,38 @@ func TestBookBrainzFetchAndSearch(t *testing.T) {
 }
 
 func TestFantasticFictionSearchOnly(t *testing.T) {
+	book := loadProviderFixture(t, "fantasticfiction_book.html")
 	search := loadProviderFixture(t, "fantasticfiction_search.html")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/search/" {
+		switch r.URL.Path {
+		case "/search/":
+			w.Write(search)
+		case "/w/andy-weir/project-hail-mary.htm":
+			w.Write(book)
+		default:
 			w.WriteHeader(http.StatusNotFound)
-			return
 		}
-		w.Write(search)
 	}))
 	defer srv.Close()
 	client := NewFantasticFictionClientAt(srv.URL, "test")
 	client.http.client = srv.Client()
 
-	match, err := client.Fetch(context.Background(), "anything")
-	if err != nil || match != nil {
-		t.Fatalf("Fetch() = %#v/%v, want nil/nil", match, err)
-	}
 	matches, err := client.Search(context.Background(), metadata.SearchQuery{Title: "project hail mary"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(matches) != 3 || matches[0].Title != "Project Hail Mary" || matches[2].SeriesName != "Dune" {
+	if len(matches) != 3 || matches[0].ProviderID != "path:/w/andy-weir/project-hail-mary.htm" || matches[0].Title != "Project Hail Mary" || matches[2].SeriesName != "Dune" {
 		t.Fatalf("Search() = %#v", matches)
+	}
+	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected == nil || selected.ProviderID != "path:/w/andy-weir/project-hail-mary.htm" || selected.Title != "Project Hail Mary" {
+		t.Fatalf("Fetch(search ProviderID) = %#v", selected)
+	}
+	if len(selected.Authors) != 1 || selected.Authors[0] != "Andy Weir" || selected.PublishYear != 2021 {
+		t.Fatalf("selected mapped fields = %#v", selected)
 	}
 }
 
