@@ -53,11 +53,15 @@ jobs:
         run: |
           mkdir -p dist
           binary="plugin-${GOOS}-${GOARCH}"
-          version="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(jq -r '.version' manifest.json)"
+          fi
           go build -trimpath -ldflags="-s -w -X main.version=${version}" -o "dist/${binary}" .
           checksum=$(shasum -a 256 "dist/${binary}" | awk '{print $1}')
           printf '%s  %s\n' "$checksum" "$binary" > dist/checksums.txt
-          sed "s/__CHECKSUM__/${checksum}/" manifest.json > "dist/manifest-${GOOS}-${GOARCH}.json"
+          jq --arg version "$version" --arg checksum "$checksum" '.version = $version | .checksum = $checksum' manifest.json > "dist/manifest-${GOOS}-${GOARCH}.json"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
