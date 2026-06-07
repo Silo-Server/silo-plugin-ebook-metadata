@@ -68,7 +68,7 @@ func metadataItemFromMatch(match metadata.Match, itemType string) (*pluginv1.Met
 		OriginalTitle: strings.TrimSpace(match.Title),
 		Year:          int32(match.PublishYear),
 		Overview:      strings.TrimSpace(match.Description),
-		Genres:        match.Genres,
+		Genres:        genresFromMatch(match),
 		ProviderIds:   providerIDs,
 		Metadata:      metadataStruct(match),
 		Studios:       publisherStudio(match.Publisher),
@@ -127,6 +127,21 @@ func publisherStudio(publisher string) []string {
 		return nil
 	}
 	return []string{publisher}
+}
+
+func genresFromMatch(match metadata.Match) []string {
+	genres := make([]string, 0, len(match.Genres))
+	for _, genre := range match.Genres {
+		genre = strings.TrimSpace(genre)
+		if genre == "" {
+			continue
+		}
+		genres = append(genres, genre)
+	}
+	if len(genres) == 0 {
+		return nil
+	}
+	return genres
 }
 
 func peopleFromMatch(match metadata.Match) []*pluginv1.PersonRecord {

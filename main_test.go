@@ -117,6 +117,25 @@ func TestMetadataItemFromMatchMapsAuthorsOnly(t *testing.T) {
 	}
 }
 
+func TestMetadataItemFromMatchCopiesAndTrimsGenres(t *testing.T) {
+	match := metadata.Match{
+		Provider:   "openlibrary",
+		ProviderID: "OL7353617M",
+		Title:      "The Name of the Wind",
+		Genres:     []string{" Fantasy ", "", "Adventure"},
+	}
+
+	item, err := metadataItemFromMatch(match, "ebook")
+	if err != nil {
+		t.Fatalf("metadataItemFromMatch() error = %v", err)
+	}
+
+	match.Genres[0] = "Changed"
+	if got := item.GetGenres(); len(got) != 2 || got[0] != "Fantasy" || got[1] != "Adventure" {
+		t.Fatalf("Genres = %#v, want trimmed defensive copy", got)
+	}
+}
+
 func TestLoadManifestParsesEbookCapability(t *testing.T) {
 	manifest, err := loadManifest()
 	if err != nil {
