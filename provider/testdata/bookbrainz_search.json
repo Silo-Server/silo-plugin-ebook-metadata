@@ -1,0 +1,55 @@
+{
+  "count": 2,
+  "offset": 0,
+  "results": [
+    {
+      "bbid": "b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+      "type": "Edition",
+      "defaultAlias": {
+        "name": "Project Hail Mary",
+        "language": { "name": "English" }
+      },
+      "annotation": {
+        "content": "A lone astronaut must save humanity from extinction."
+      },
+      "identifierSet": {
+        "identifiers": [
+          {"type": {"label": "ISBN-13"}, "value": "9780593135204"}
+        ]
+      },
+      "authorCredit": {
+        "names": [
+          {"author": {"defaultAlias": {"name": "Andy Weir"}}}
+        ]
+      },
+      "publisherSet": {
+        "publishers": [
+          {"defaultAlias": {"name": "Ballantine Books"}}
+        ]
+      },
+      "releaseEventSet": {
+        "releaseEvents": [
+          {"date": "2021-05-04"}
+        ]
+      }
+    },
+    {
+      "bbid": "f0e1d2c3-b4a5-6789-0abc-def012345678",
+      "type": "Edition",
+      "defaultAlias": {
+        "name": "Project Hail Mary (Audiobook)",
+        "language": { "name": "English" }
+      },
+      "authorCredit": {
+        "names": [
+          {"author": {"defaultAlias": {"name": "Andy Weir"}}}
+        ]
+      },
+      "releaseEventSet": {
+        "releaseEvents": [
+          {"date": "2021"}
+        ]
+      }
+    }
+  ]
+}

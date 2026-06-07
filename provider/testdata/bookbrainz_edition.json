@@ -1,0 +1,34 @@
+{
+  "bbid": "b1a2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "type": "Edition",
+  "defaultAlias": {
+    "name": "Project Hail Mary",
+    "sortName": "Project Hail Mary",
+    "language": { "name": "English" }
+  },
+  "disambiguation": "First edition hardcover",
+  "annotation": {
+    "content": "A lone astronaut must save humanity from extinction."
+  },
+  "identifierSet": {
+    "identifiers": [
+      {"type": {"label": "ISBN-10"}, "value": "0593135202"},
+      {"type": {"label": "ISBN-13"}, "value": "9780593135204"}
+    ]
+  },
+  "authorCredit": {
+    "names": [
+      {"author": {"defaultAlias": {"name": "Andy Weir"}}}
+    ]
+  },
+  "publisherSet": {
+    "publishers": [
+      {"defaultAlias": {"name": "Ballantine Books"}}
+    ]
+  },
+  "releaseEventSet": {
+    "releaseEvents": [
+      {"date": "2021-05-04"}
+    ]
+  }
+}

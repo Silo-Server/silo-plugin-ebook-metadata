@@ -1,0 +1,30 @@
+{
+  "responseHeader": {"status": 0, "QTime": 12},
+  "response": {
+    "numFound": 2,
+    "start": 0,
+    "docs": [
+      {
+        "identifier": "frankenstein00mary",
+        "title": "Frankenstein; Or, The Modern Prometheus",
+        "creator": ["Shelley, Mary Wollstonecraft", "Shelley, Mary Wollstonecraft"],
+        "publisher": "Lackington, Hughes, Harding, Mavor, and Jones",
+        "date": "1818-01-01",
+        "language": ["English"],
+        "description": "<p>A novel by Mary Shelley.</p>",
+        "isbn": "9780000000000",
+        "imagecount": 320
+      },
+      {
+        "identifier": "projecthailmary00weir",
+        "title": "Project Hail Mary",
+        "creator": "Andy Weir",
+        "publisher": "Ballantine Books",
+        "date": "2021-05-04",
+        "language": "English",
+        "description": ["A lone astronaut must save humanity.", "Hardcover edition."],
+        "isbn": ["9780593135204"]
+      }
+    ]
+  }
+}

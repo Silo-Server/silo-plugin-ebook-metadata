@@ -1,0 +1,16 @@
+{
+  "server": "ia902809.us.archive.org",
+  "dir": "/24/items/frankenstein00mary",
+  "metadata": {
+    "identifier": "frankenstein00mary",
+    "title": "Frankenstein; Or, The Modern Prometheus",
+    "creator": "Shelley, Mary Wollstonecraft",
+    "publisher": ["Lackington, Hughes, Harding, Mavor, and Jones"],
+    "date": "1818-01-01",
+    "language": "English",
+    "description": "<p>A novel by Mary Shelley.</p><br/>First published <b>anonymously</b> in 1818. &amp; widely reprinted.",
+    "isbn": ["9780000000000"],
+    "imagecount": 320
+  },
+  "files": []
+}

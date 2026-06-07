@@ -1,0 +1,46 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 84,
+      "title": "Frankenstein; Or, The Modern Prometheus",
+      "authors": [
+        {"name": "Shelley, Mary Wollstonecraft", "birth_year": 1797, "death_year": 1851}
+      ],
+      "subjects": [
+        "Gothic fiction",
+        "Horror tales",
+        "Monsters -- Fiction",
+        "Science fiction",
+        "Scientists -- Fiction"
+      ],
+      "bookshelves": ["Gothic Fiction"],
+      "languages": ["en"],
+      "copyright": false,
+      "media_type": "Text",
+      "formats": {
+        "image/jpeg": "https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg",
+        "application/epub+zip": "https://www.gutenberg.org/ebooks/84.epub3.images"
+      },
+      "download_count": 100000
+    },
+    {
+      "id": 41445,
+      "title": "Frankenstein (1818 edition)",
+      "authors": [
+        {"name": "Shelley, Mary Wollstonecraft", "birth_year": 1797, "death_year": 1851}
+      ],
+      "subjects": ["Gothic fiction", "Horror tales"],
+      "bookshelves": ["Gothic Fiction"],
+      "languages": ["en"],
+      "copyright": false,
+      "media_type": "Text",
+      "formats": {
+        "image/jpeg": "https://www.gutenberg.org/cache/epub/41445/pg41445.cover.medium.jpg"
+      },
+      "download_count": 5000
+    }
+  ]
+}
