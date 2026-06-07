@@ -1,0 +1,25 @@
+{
+  "plugin_id": "silo.ebook-metadata",
+  "version": "0.1.0",
+  "checksum": "__CHECKSUM__",
+  "silo_api_version": "v1",
+  "supported_platforms": [
+    { "os": "darwin", "arch": "arm64" },
+    { "os": "linux", "arch": "amd64" },
+    { "os": "linux", "arch": "arm64" }
+  ],
+  "capabilities": [
+    {
+      "type": "metadata_provider.v1",
+      "id": "ebook-metadata",
+      "display_name": "Ebook Metadata",
+      "description": "Metadata provider for ebook items. Wraps OpenLibrary, Google Books, ISBNdb, Hardcover, Goodreads, Amazon, Anna's Archive, Project Gutenberg, BookBrainz, FantasticFiction, ISFDB, LibraryThing, Internet Archive, WorldCat, and Douban.",
+      "metadata": {
+        "default_priority": {
+          "ebook": 2
+        }
+      }
+    }
+  ],
+  "global_config_schema": []
+}
