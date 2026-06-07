@@ -395,10 +395,10 @@ func parseFantasticFictionSearchPage(html []byte) []metadata.Match {
 		if title == "" {
 			continue
 		}
-		match := metadata.Match{Title: title}
-		if strings.HasPrefix(tm[1], "/") {
-			match.ProviderID = "path:" + tm[1]
+		if !strings.HasPrefix(tm[1], "/") {
+			continue
 		}
+		match := metadata.Match{ProviderID: "path:" + tm[1], Title: title}
 		if author := htmlText(firstSubmatch(ffAuthorRE, block)); author != "" {
 			match.Authors = []string{author}
 		}

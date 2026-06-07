@@ -113,6 +113,11 @@ func TestFantasticFictionSearchOnly(t *testing.T) {
 	if len(matches) != 3 || matches[0].ProviderID != "path:/w/andy-weir/project-hail-mary.htm" || matches[0].Title != "Project Hail Mary" || matches[2].SeriesName != "Dune" {
 		t.Fatalf("Search() = %#v", matches)
 	}
+	for _, match := range matches {
+		if match.ProviderID == "" {
+			t.Fatalf("Search() emitted unfetchable row: %#v", match)
+		}
+	}
 	selected, err := client.Fetch(context.Background(), matches[0].ProviderID)
 	if err != nil {
 		t.Fatal(err)
