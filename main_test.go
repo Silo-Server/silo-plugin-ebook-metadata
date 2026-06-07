@@ -8,6 +8,7 @@ import (
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/metadata"
 	"github.com/Silo-Server/silo-plugin-ebook-metadata/provider"
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestRuntimeServerConfigureNoOp(t *testing.T) {
@@ -17,6 +18,44 @@ func TestRuntimeServerConfigureNoOp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Configure() error = %v", err)
 	}
+}
+
+func TestConfigureUpdatesProviderOptions(t *testing.T) {
+	server := &runtimeServer{provider: provider.NewProviderWithSources(nil)}
+
+	_, err := server.Configure(context.Background(), &pluginv1.ConfigureRequest{
+		Config: []*pluginv1.ConfigEntry{
+			configEntry(t, "enabled_sources", "openlibrary, googlebooks"),
+			configEntry(t, "google_books_api_key", "secret-google"),
+			configEntry(t, "isbndb_api_key", "secret-isbn"),
+			configEntry(t, "hardcover_api_key", "secret-hardcover"),
+			configEntry(t, "default_region", "us"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Configure() error = %v", err)
+	}
+	if server.provider == nil {
+		t.Fatal("provider is nil after Configure")
+	}
+	if len(server.options.EnabledSources) != 1 || server.options.EnabledSources[0] != "openlibrary, googlebooks" {
+		t.Fatalf("EnabledSources not parsed")
+	}
+	if server.options.GoogleBooksAPIKey == "" || server.options.ISBNdbAPIKey == "" || server.options.HardcoverAPIKey == "" {
+		t.Fatalf("API key options not parsed")
+	}
+	if server.options.DefaultRegion != "us" {
+		t.Fatalf("DefaultRegion = %q, want us", server.options.DefaultRegion)
+	}
+}
+
+func configEntry(t *testing.T, key string, value string) *pluginv1.ConfigEntry {
+	t.Helper()
+	payload, err := structpb.NewStruct(map[string]any{"value": value})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &pluginv1.ConfigEntry{Key: key, Value: payload}
 }
 
 func TestMetadataServerGetMetadataReturnsNilForUnknown(t *testing.T) {
@@ -192,6 +231,17 @@ func TestLoadManifestParsesEbookCapability(t *testing.T) {
 	}
 	if got := defaultPriority.GetFields()["ebook"].GetNumberValue(); got != 2 {
 		t.Fatalf("default_priority.ebook = %v, want 2", got)
+	}
+
+	configSchema := manifest.GetGlobalConfigSchema()
+	if len(configSchema) != 5 {
+		t.Fatalf("global config schema length = %d, want 5", len(configSchema))
+	}
+	if configSchema[0].GetKey() != "enabled_sources" {
+		t.Fatalf("first global config key = %q, want enabled_sources", configSchema[0].GetKey())
+	}
+	if configSchema[1].GetAdminForm().GetFields()[0].GetControl().String() != "ADMIN_FORM_CONTROL_PASSWORD" {
+		t.Fatalf("google_books_api_key control = %s, want password", configSchema[1].GetAdminForm().GetFields()[0].GetControl().String())
 	}
 }
 

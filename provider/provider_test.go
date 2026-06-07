@@ -125,7 +125,7 @@ func TestProviderFetchPrefersSourceSpecificID(t *testing.T) {
 
 	match, err := p.Fetch(context.Background(), metadata.SearchQuery{
 		ProviderIDs: map[string]string{
-			"googlebooks":          "GB1",
+			"googlebooks":         "GB1",
 			metadata.CapabilityID: "openlibrary:OL1",
 			"isbn":                "978-0-593-13520-4",
 		},
@@ -175,5 +175,41 @@ func TestProviderFetchISBNFallbackReturnsLastErrorWhenNoSourceMatches(t *testing
 	}
 	if err == nil {
 		t.Fatal("Fetch() error = nil, want last fallback error")
+	}
+}
+
+func TestNewProviderWithOptionsFiltersEnabledSources(t *testing.T) {
+	p := NewProviderWithOptions(Options{EnabledSources: []string{"openlibrary, googlebooks"}})
+
+	if len(p.sources) != 2 {
+		t.Fatalf("sources length = %d, want 2", len(p.sources))
+	}
+	if p.byID["openlibrary"] == nil || p.byID["googlebooks"] == nil {
+		t.Fatalf("enabled sources missing from byID: %#v", p.byID)
+	}
+	if p.byID["amazon"] != nil {
+		t.Fatalf("amazon source enabled unexpectedly")
+	}
+}
+
+func TestNewProviderWithOptionsPassesAPIKeys(t *testing.T) {
+	p := NewProviderWithOptions(Options{
+		EnabledSources:    []string{"googlebooks,isbndb,hardcover"},
+		GoogleBooksAPIKey: "google-key",
+		ISBNdbAPIKey:      "isbn-key",
+		HardcoverAPIKey:   "hardcover-key",
+	})
+
+	google, ok := p.byID["googlebooks"].(*GoogleBooksClient)
+	if !ok || google.apiKey != "google-key" {
+		t.Fatalf("GoogleBooks api key not configured")
+	}
+	isbndb, ok := p.byID["isbndb"].(*ISBNdbClient)
+	if !ok || isbndb.apiKey != "isbn-key" {
+		t.Fatalf("ISBNdb api key not configured")
+	}
+	hardcover, ok := p.byID["hardcover"].(*HardcoverClient)
+	if !ok || hardcover.apiKey != "hardcover-key" {
+		t.Fatalf("Hardcover api key not configured")
 	}
 }

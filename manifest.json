@@ -21,5 +21,81 @@
       }
     }
   ],
-  "global_config_schema": []
+  "global_config_schema": [
+    {
+      "key": "enabled_sources",
+      "title": "Enabled sources",
+      "description": "Comma-separated source IDs to search. Empty uses the default source set.",
+      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      "admin_form": {
+        "fields": [
+          {
+            "key": "value",
+            "label": "Source IDs",
+            "control": "ADMIN_FORM_CONTROL_TEXT"
+          }
+        ]
+      }
+    },
+    {
+      "key": "google_books_api_key",
+      "title": "Google Books API key",
+      "description": "Optional API key for Google Books.",
+      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      "admin_form": {
+        "fields": [
+          {
+            "key": "value",
+            "label": "API key",
+            "control": "ADMIN_FORM_CONTROL_PASSWORD"
+          }
+        ]
+      }
+    },
+    {
+      "key": "isbndb_api_key",
+      "title": "ISBNdb API key",
+      "description": "Optional API key for ISBNdb.",
+      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      "admin_form": {
+        "fields": [
+          {
+            "key": "value",
+            "label": "API key",
+            "control": "ADMIN_FORM_CONTROL_PASSWORD"
+          }
+        ]
+      }
+    },
+    {
+      "key": "hardcover_api_key",
+      "title": "Hardcover API key",
+      "description": "Optional API key for Hardcover.",
+      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      "admin_form": {
+        "fields": [
+          {
+            "key": "value",
+            "label": "API key",
+            "control": "ADMIN_FORM_CONTROL_PASSWORD"
+          }
+        ]
+      }
+    },
+    {
+      "key": "default_region",
+      "title": "Default region",
+      "description": "Optional region hint used by sources that support regional catalogs.",
+      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      "admin_form": {
+        "fields": [
+          {
+            "key": "value",
+            "label": "Region code",
+            "control": "ADMIN_FORM_CONTROL_TEXT"
+          }
+        ]
+      }
+    }
+  ]
 }

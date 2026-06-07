@@ -26,8 +26,20 @@ type Provider struct {
 	byID    map[string]Source
 }
 
+type Options struct {
+	EnabledSources    []string
+	GoogleBooksAPIKey string
+	ISBNdbAPIKey      string
+	HardcoverAPIKey   string
+	DefaultRegion     string
+}
+
 func NewProvider() *Provider {
-	return NewProviderWithSources(defaultSources())
+	return NewProviderWithOptions(Options{})
+}
+
+func NewProviderWithOptions(options Options) *Provider {
+	return NewProviderWithSources(defaultSources(options))
 }
 
 func NewProviderWithSources(sources []Source) *Provider {
@@ -145,13 +157,13 @@ func (p *Provider) Fetch(ctx context.Context, q metadata.SearchQuery) (*metadata
 	return nil, lastErr
 }
 
-func defaultSources() []Source {
+func defaultSources(options Options) []Source {
 	userAgent := "silo-plugin-ebook-metadata/0.1"
-	return []Source{
+	sources := []Source{
 		NewOpenLibraryClient(userAgent),
-		NewGoogleBooksClient("", userAgent),
-		NewISBNdbClient("", userAgent),
-		NewHardcoverClient("", userAgent),
+		NewGoogleBooksClient(options.GoogleBooksAPIKey, userAgent),
+		NewISBNdbClient(options.ISBNdbAPIKey, userAgent),
+		NewHardcoverClient(options.HardcoverAPIKey, userAgent),
 		NewGoodreadsClient(userAgent),
 		NewAmazonClient(userAgent),
 		NewAnnasArchiveClient(userAgent),
@@ -164,4 +176,31 @@ func defaultSources() []Source {
 		NewWorldCatClient(userAgent),
 		NewDoubanClient(userAgent),
 	}
+	enabled := enabledSourceSet(options.EnabledSources)
+	if len(enabled) == 0 {
+		return sources
+	}
+	filtered := make([]Source, 0, len(sources))
+	for _, source := range sources {
+		if source == nil {
+			continue
+		}
+		if enabled[strings.TrimSpace(source.ID())] {
+			filtered = append(filtered, source)
+		}
+	}
+	return filtered
+}
+
+func enabledSourceSet(values []string) map[string]bool {
+	out := make(map[string]bool)
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			part = strings.ToLower(strings.TrimSpace(part))
+			if part != "" {
+				out[part] = true
+			}
+		}
+	}
+	return out
 }

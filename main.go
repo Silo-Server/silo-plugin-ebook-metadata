@@ -27,6 +27,7 @@ type runtimeServer struct {
 
 	manifest *pluginv1.PluginManifest
 	provider *provider.Provider
+	options  provider.Options
 }
 
 type metadataServer struct {
@@ -41,7 +42,10 @@ func (s *runtimeServer) GetManifest(context.Context, *pluginv1.GetManifestReques
 	return &pluginv1.GetManifestResponse{Manifest: s.manifest}, nil
 }
 
-func (s *runtimeServer) Configure(_ context.Context, _ *pluginv1.ConfigureRequest) (*pluginv1.ConfigureResponse, error) {
+func (s *runtimeServer) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*pluginv1.ConfigureResponse, error) {
+	options := providerOptionsFromConfig(req.GetConfig())
+	s.options = options
+	s.provider = provider.NewProviderWithOptions(options)
 	return &pluginv1.ConfigureResponse{}, nil
 }
 
@@ -60,7 +64,7 @@ func (s *metadataServer) Search(ctx context.Context, req *pluginv1.SearchMetadat
 		Year:        int(req.GetYear()),
 		ContentType: req.GetItemType(),
 		ProviderIDs: stringMapFromStruct(req.GetProviderIds()),
-		Language:    req.GetLanguage(),
+		Language:    firstText(req.GetLanguage(), s.runtime.options.DefaultRegion),
 	})
 	if err != nil {
 		return nil, err
@@ -90,7 +94,7 @@ func (s *metadataServer) GetMetadata(ctx context.Context, req *pluginv1.GetMetad
 	match, err := p.Fetch(ctx, metadata.SearchQuery{
 		ProviderIDs: providerIDsFromProto(req.GetProviderIds(), capabilityID, req.GetProviderId()),
 		ContentType: req.GetItemType(),
-		Language:    req.GetLanguage(),
+		Language:    firstText(req.GetLanguage(), s.runtime.options.DefaultRegion),
 	})
 	if err != nil {
 		return nil, err
@@ -167,6 +171,56 @@ func stringMapFromStruct(value *structpb.Struct) map[string]string {
 		}
 	}
 	return result
+}
+
+func providerOptionsFromConfig(entries []*pluginv1.ConfigEntry) provider.Options {
+	var options provider.Options
+	for _, entry := range entries {
+		if entry == nil {
+			continue
+		}
+		value := configEntryString(entry.GetValue())
+		switch strings.TrimSpace(entry.GetKey()) {
+		case "enabled_sources":
+			options.EnabledSources = append(options.EnabledSources, value)
+		case "google_books_api_key":
+			options.GoogleBooksAPIKey = value
+		case "isbndb_api_key":
+			options.ISBNdbAPIKey = value
+		case "hardcover_api_key":
+			options.HardcoverAPIKey = value
+		case "default_region":
+			options.DefaultRegion = value
+		}
+	}
+	return options
+}
+
+func configEntryString(value *structpb.Struct) string {
+	if value == nil {
+		return ""
+	}
+	fields := value.GetFields()
+	for _, key := range []string{"value", "string", "text"} {
+		if raw := fields[key]; raw != nil {
+			return strings.TrimSpace(raw.GetStringValue())
+		}
+	}
+	for _, raw := range fields {
+		if text := strings.TrimSpace(raw.GetStringValue()); text != "" {
+			return text
+		}
+	}
+	return ""
+}
+
+func firstText(values ...string) string {
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func providerIDsFromProto(value *structpb.Struct, capabilityID string, fallbackID string) map[string]string {
