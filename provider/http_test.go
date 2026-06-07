@@ -3,9 +3,11 @@ package provider
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestHTTPGetBytesLimitsBody(t *testing.T) {
@@ -58,5 +60,63 @@ func TestHTTPGetBytesErrorsForNon2xxStatus(t *testing.T) {
 	}
 	if errors.Is(err, context.Canceled) {
 		t.Fatalf("httpGetBytes() error = %v, want status error", err)
+	}
+}
+
+func TestHTTPGetBytesWrapsRequestErrors(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := httpGetBytes(ctx, http.DefaultClient, "https://example.invalid", "")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("httpGetBytes() error = %v, want context.Canceled", err)
+	}
+}
+
+type brokenBody struct{}
+
+func (brokenBody) Read([]byte) (int, error) {
+	return 0, io.ErrUnexpectedEOF
+}
+
+func (brokenBody) Close() error {
+	return nil
+}
+
+type brokenBodyTransport struct{}
+
+func (brokenBodyTransport) RoundTrip(*http.Request) (*http.Response, error) {
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       brokenBody{},
+	}, nil
+}
+
+func TestHTTPGetBytesWrapsBodyReadErrors(t *testing.T) {
+	client := &http.Client{Transport: brokenBodyTransport{}}
+
+	_, err := httpGetBytes(context.Background(), client, "https://example.test/book", "")
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("httpGetBytes() error = %v, want io.ErrUnexpectedEOF", err)
+	}
+}
+
+func TestRateLimiterInvalidRPMDoesNotGrantRequest(t *testing.T) {
+	for _, rpm := range []float64{0, -1} {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+		err := waitForLimiter(ctx, newLimiter(rpm))
+		cancel()
+		if err == nil {
+			t.Fatalf("waitForLimiter(rpm=%v) error = nil, want invalid limiter error", rpm)
+		}
+	}
+}
+
+func TestRateLimiterPositiveRPMAllowsInitialRequest(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if err := waitForLimiter(ctx, newLimiter(60)); err != nil {
+		t.Fatalf("waitForLimiter() error = %v", err)
 	}
 }

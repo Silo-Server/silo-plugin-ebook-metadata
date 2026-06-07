@@ -20,7 +20,7 @@ func httpGetBytes(ctx context.Context, client *http.Client, url string, userAgen
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("http get %s: request: %w", url, err)
 	}
 	defer resp.Body.Close()
 
@@ -30,7 +30,7 @@ func httpGetBytes(ctx context.Context, client *http.Client, url string, userAgen
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("http get %s: read body: %w", url, err)
 	}
 	if len(body) > maxResponseBytes {
 		return nil, fmt.Errorf("http get %s: response body exceeds %d bytes", url, maxResponseBytes)
